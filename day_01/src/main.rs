@@ -5,16 +5,16 @@ fn main() {
 
     println!(
         "Part 1 - Number of increases in sea depth: {}",
-        count_increases(depth_measurements.iter().copied())
+        count_sliding_sum_increases(&depth_measurements, 1)
     );
 
     println!(
         "Part 2 - Number of sliding window increases in sea depth: {}",
-        count_sliding_sum_increases(&depth_measurements)
+        count_sliding_sum_increases(&depth_measurements, 3)
     );
 }
 
-// Parse to array to avoid heap allocation
+// Parse to array rather than Vec to avoid heap allocation
 fn parse_input<const N: usize>(input: &str) -> [u32; N] {
     let mut depth_measurements = [0; N];
     for (index, line) in input.lines().enumerate() {
@@ -25,17 +25,15 @@ fn parse_input<const N: usize>(input: &str) -> [u32; N] {
     depth_measurements
 }
 
-fn count_increases(numbers: impl Iterator<Item = u32>) -> u32 {
+fn count_sliding_sum_increases<const N: usize>(numbers: &[u32; N], size: usize) -> usize {
+    // Little trick: when comparing two sliding sums, the last numbers of the
+    // first sum are the same as the first numbers of the second sum, so we
+    // only need to compare the first number of the first sum with the last
+    // number of the second sum.
     numbers
-        .fold((u32::MAX, 0), |(previous, count), number| {
-            (number, if number > previous { count + 1 } else { count })
-        })
-        .1
-}
-
-fn count_sliding_sum_increases(numbers: &[u32]) -> u32 {
-    let window_sums = numbers.windows(3).map(|window| window.iter().sum());
-    count_increases(window_sums)
+        .windows(size + 1)
+        .filter(|window| window[size] > window[0])
+        .count()
 }
 
 #[cfg(test)]
@@ -43,24 +41,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_count_increases() {
+    fn test_part_1() {
         // Arrange
         let depth_measurements = [199, 200, 208, 210, 200, 207, 240, 269, 260, 263];
 
         // Act
-        let num_increases = count_increases(depth_measurements.into_iter());
+        let num_increases = count_sliding_sum_increases(&depth_measurements, 1);
 
         // Assert
         assert_eq!(num_increases, 7);
     }
 
     #[test]
-    fn test_count_sliding_sum_increases() {
+    fn test_part_2() {
         // Arrange
         let depth_measurements = [199, 200, 208, 210, 200, 207, 240, 269, 260, 263];
 
         // Act
-        let num_increases = count_sliding_sum_increases(&depth_measurements);
+        let num_increases = count_sliding_sum_increases(&depth_measurements, 3);
 
         // Assert
         assert_eq!(num_increases, 5);
