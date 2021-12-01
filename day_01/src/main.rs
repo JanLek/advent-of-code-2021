@@ -1,14 +1,7 @@
 #![deny(clippy::all, clippy::pedantic)]
 
-const DEPTH_MEASUREMENTS: &str = include_str!("depth-measurements.txt");
-
 fn main() {
-    let depth_measurements: Vec<_> = {
-        DEPTH_MEASUREMENTS
-            .split('\n')
-            .map(|number| number.parse().unwrap())
-            .collect()
-    };
+    let depth_measurements = parse_input::<2000>(include_str!("depth-measurements.txt"));
 
     println!(
         "Part 1 - Number of increases in sea depth: {}",
@@ -19,6 +12,17 @@ fn main() {
         "Part 2 - Number of sliding window increases in sea depth: {}",
         count_sliding_sum_increases(&depth_measurements)
     );
+}
+
+// Parse to array to avoid heap allocation
+fn parse_input<const N: usize>(input: &str) -> [u32; N] {
+    let mut depth_measurements = [0; N];
+    for (index, line) in input.lines().enumerate() {
+        assert!(index < N);
+        depth_measurements[index] = line.parse().unwrap();
+    }
+    assert_ne!(depth_measurements[N - 1], 0);
+    depth_measurements
 }
 
 fn count_increases(numbers: impl Iterator<Item = u32>) -> u32 {
