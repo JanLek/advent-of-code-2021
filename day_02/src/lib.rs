@@ -4,28 +4,22 @@
 
 extern crate test;
 
-use std::{mem::MaybeUninit, ops::Add};
+use std::mem::MaybeUninit;
+
+const INPUT: &str = include_str!("commands.txt");
+
+fn part_1(commands: &[Command; 1_000]) -> i32 {
+    aggregate_commands(commands, SubmarineState::apply_command_incorrectly).result()
+}
+
+fn part_2(commands: &[Command; 1_000]) -> i32 {
+    aggregate_commands(commands, SubmarineState::apply_command).result()
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Command {
     AdjustAim(i32),
     MoveForward(i32),
-}
-
-impl From<&str> for Command {
-    fn from(input: &str) -> Self {
-        let mut parts = input.split(' ');
-        let direction = parts.next().unwrap();
-        let x = parts.next().unwrap().parse().unwrap();
-        assert_eq!(parts.next(), None);
-
-        match direction {
-            "forward" => Self::MoveForward(x),
-            "down" => Self::AdjustAim(x),
-            "up" => Self::AdjustAim(-x),
-            _ => unimplemented!(),
-        }
-    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -36,8 +30,8 @@ struct SubmarineState {
 }
 
 impl SubmarineState {
-    fn add_incorrectly(self, rhs: Command) -> Self {
-        match rhs {
+    fn apply_command_incorrectly(self, command: Command) -> Self {
+        match command {
             Command::AdjustAim(x) => Self {
                 depth: self.depth + x,
                 ..self
@@ -49,16 +43,8 @@ impl SubmarineState {
         }
     }
 
-    fn result(&self) -> i32 {
-        self.depth * self.horizontal
-    }
-}
-
-impl Add<Command> for SubmarineState {
-    type Output = Self;
-
-    fn add(self, rhs: Command) -> Self::Output {
-        match rhs {
+    fn apply_command(self, command: Command) -> Self {
+        match command {
             Command::AdjustAim(x) => Self {
                 aim: self.aim + x,
                 ..self
@@ -69,6 +55,10 @@ impl Add<Command> for SubmarineState {
                 ..self
             },
         }
+    }
+
+    fn result(&self) -> i32 {
+        self.depth * self.horizontal
     }
 }
 
@@ -82,52 +72,52 @@ fn aggregate_commands<const N: usize>(
         .fold(SubmarineState::default(), apply)
 }
 
-fn parse_input_unsafe<'a, T, const N: usize>(
-    input: &'a str,
-    parse: impl Fn(&'a str) -> T + 'a,
-) -> [T; N] {
-    let mut depth_measurements: [MaybeUninit<T>; N] = MaybeUninit::uninit_array();
-    let mut initialised_elements = 0;
-    for (index, line) in input.lines().enumerate() {
-        depth_measurements[index].write(parse(line));
-        initialised_elements += 1;
+#[allow(clippy::needless_range_loop)]
+fn fast_parse<const N: usize>(input: &str) -> [Command; N] {
+    let bytes = input.as_bytes();
+    let mut commands: [MaybeUninit<Command>; N] = MaybeUninit::uninit_array();
+
+    let mut index = 0;
+    for j in 0..commands.len() {
+        match bytes[index] {
+            b'f' => {
+                index += 8;
+                commands[j].write(Command::MoveForward(parse_byte_to_int(bytes[index])));
+                index += 2;
+            }
+            b'd' => {
+                index += 5;
+                commands[j].write(Command::AdjustAim(parse_byte_to_int(bytes[index])));
+                index += 2;
+            }
+            b'u' => {
+                index += 3;
+                commands[j].write(Command::AdjustAim(-(parse_byte_to_int(bytes[index]))));
+                index += 2;
+            }
+            _ => panic!(),
+        }
     }
-    assert_eq!(initialised_elements, N);
-    unsafe { MaybeUninit::array_assume_init(depth_measurements) }
+
+    unsafe { MaybeUninit::array_assume_init(commands) }
+}
+
+fn parse_byte_to_int(byte: u8) -> i32 {
+    i32::from(byte - b'0')
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_parse_input() {
-        assert_eq!(
-            parse_input_unsafe(
-                "forward 5\ndown 5\nforward 8\nup 3\ndown 8\nforward 2",
-                Command::from
-            ),
-            [
-                Command::MoveForward(5),
-                Command::AdjustAim(5),
-                Command::MoveForward(8),
-                Command::AdjustAim(-3),
-                Command::AdjustAim(8),
-                Command::MoveForward(2)
-            ]
-        );
-    }
+    use test::Bencher;
 
     #[test]
     fn sample_1() {
         // Arrange
-        let commands: [_; 6] = parse_input_unsafe(
-            "forward 5\ndown 5\nforward 8\nup 3\ndown 8\nforward 2",
-            Command::from,
-        );
+        let commands: [_; 6] = fast_parse("forward 5\ndown 5\nforward 8\nup 3\ndown 8\nforward 2");
 
         // Act
-        let state = aggregate_commands(&commands, SubmarineState::add_incorrectly);
+        let state = aggregate_commands(&commands, SubmarineState::apply_command_incorrectly);
 
         // Assert
         assert_eq!(state.depth, 10);
@@ -136,27 +126,17 @@ mod tests {
     }
 
     #[test]
-    fn part_1() {
-        // Arrange
-        let commands: [_; 1000] = parse_input_unsafe(include_str!("commands.txt"), Command::from);
-
-        // Act
-        let state = aggregate_commands(&commands, SubmarineState::add_incorrectly);
-
-        // Assert
-        assert_eq!(state.result(), 2_147_104);
+    fn test_part_1() {
+        assert_eq!(part_1(&fast_parse(INPUT)), 2_147_104);
     }
 
     #[test]
     fn sample_2() {
         // Arrange
-        let commands: [_; 6] = parse_input_unsafe(
-            "forward 5\ndown 5\nforward 8\nup 3\ndown 8\nforward 2",
-            Command::from,
-        );
+        let commands: [_; 6] = fast_parse("forward 5\ndown 5\nforward 8\nup 3\ndown 8\nforward 2");
 
         // Act
-        let state = aggregate_commands(&commands, std::ops::Add::add);
+        let state = aggregate_commands(&commands, SubmarineState::apply_command);
 
         // Assert
         assert_eq!(state.depth, 60);
@@ -165,14 +145,27 @@ mod tests {
     }
 
     #[test]
-    fn part_2() {
-        // Arrange
-        let commands: [_; 1000] = parse_input_unsafe(include_str!("commands.txt"), Command::from);
+    fn test_part_2() {
+        assert_eq!(part_2(&fast_parse(INPUT)), 2_044_620_088);
+    }
 
-        // Act
-        let state = aggregate_commands(&commands, Add::add);
+    #[bench]
+    fn bench_parse(b: &mut Bencher) {
+        b.iter(|| {
+            let commands: [_; 1000] = fast_parse(INPUT);
+            commands
+        });
+    }
 
-        // Assert
-        assert_eq!(state.result(), 2_044_620_088);
+    #[bench]
+    fn bench_part_1(b: &mut Bencher) {
+        let c = fast_parse(INPUT);
+        b.iter(|| part_1(&c));
+    }
+
+    #[bench]
+    fn bench_part_2(b: &mut Bencher) {
+        let c = fast_parse(INPUT);
+        b.iter(|| part_2(&c));
     }
 }
