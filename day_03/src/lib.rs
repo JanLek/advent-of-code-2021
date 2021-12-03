@@ -6,42 +6,44 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 fn part_1(input: &str) -> usize {
     let num_columns = input.lines().next().unwrap().chars().count();
     let numbers: Vec<_> = input.lines().collect();
-    let gamma_rate: usize = usize::from_str_radix(
-        &(0..num_columns)
-            .map(|column| char::from(most_common_bit(&numbers, column).unwrap()))
-            .collect::<String>(),
-        2,
-    )
-    .unwrap();
-
-    let epsilon_rate: usize = usize::from_str_radix(
-        &(0..num_columns)
-            .map(|column| char::from(least_common_bit(&numbers, column).unwrap()))
-            .collect::<String>(),
-        2,
-    )
-    .unwrap();
-
+    let gamma_rate = find_rate(num_columns, &numbers, most_common_bit);
+    let epsilon_rate = find_rate(num_columns, &numbers, least_common_bit);
     gamma_rate * epsilon_rate
 }
 
 fn part_2(input: &str) -> usize {
+    let num_columns = input.lines().next().unwrap().chars().count();
     let numbers = input.lines().collect::<Vec<_>>();
-
-    let oxygen_generator_rating = find_rating(&numbers, |candidate_numbers, column| {
-        most_common_bit(candidate_numbers, column).unwrap_or(b'1')
-    });
-
-    let co2_scrubber_rating = find_rating(&numbers, |candidate_numbers, column| {
+    let oxygen_generator_rating =
+        find_rating(num_columns, &numbers, |candidate_numbers, column| {
+            most_common_bit(candidate_numbers, column).unwrap_or(b'1')
+        });
+    let co2_scrubber_rating = find_rating(num_columns, &numbers, |candidate_numbers, column| {
         least_common_bit(candidate_numbers, column).unwrap_or(b'0')
     });
 
-    usize::from_str_radix(&oxygen_generator_rating, 2).unwrap()
-        * usize::from_str_radix(&co2_scrubber_rating, 2).unwrap()
+    oxygen_generator_rating * co2_scrubber_rating
 }
 
-fn find_rating(numbers: &[&str], make_bit_criteria: impl Fn(&[&str], usize) -> u8) -> String {
-    let num_columns = numbers[0].len();
+fn find_rate(
+    num_columns: usize,
+    numbers: &[&str],
+    choose_bit: fn(&[&str], usize) -> Option<u8>,
+) -> usize {
+    usize::from_str_radix(
+        &(0..num_columns)
+            .map(|column| char::from(choose_bit(numbers, column).unwrap()))
+            .collect::<String>(),
+        2,
+    )
+    .unwrap()
+}
+
+fn find_rating(
+    num_columns: usize,
+    numbers: &[&str],
+    make_bit_criteria: impl Fn(&[&str], usize) -> u8,
+) -> usize {
     let mut candidate_numbers = Vec::from(numbers);
     for column in 0..num_columns {
         let bit_criteria = make_bit_criteria(&candidate_numbers, column);
@@ -51,7 +53,7 @@ fn find_rating(numbers: &[&str], make_bit_criteria: impl Fn(&[&str], usize) -> u
         }
     }
 
-    candidate_numbers[0].into()
+    usize::from_str_radix(candidate_numbers[0], 2).unwrap()
 }
 
 fn most_common_bit(numbers: &[&str], column: usize) -> Option<u8> {
