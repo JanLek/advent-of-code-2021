@@ -26,38 +26,32 @@ fn part_1(input: &str) -> usize {
 }
 
 fn part_2(input: &str) -> usize {
-    let num_columns = input.lines().next().unwrap().chars().count();
+    let numbers = input.lines().collect::<Vec<_>>();
 
-    let mut oxygen_generator_rating_candidates: Vec<_> = input.lines().collect();
+    let oxygen_generator_rating = find_rating(&numbers, |candidate_numbers, column| {
+        most_common_bit(candidate_numbers, column).unwrap_or(b'1')
+    });
+
+    let co2_scrubber_rating = find_rating(&numbers, |candidate_numbers, column| {
+        least_common_bit(candidate_numbers, column).unwrap_or(b'0')
+    });
+
+    usize::from_str_radix(&oxygen_generator_rating, 2).unwrap()
+        * usize::from_str_radix(&co2_scrubber_rating, 2).unwrap()
+}
+
+fn find_rating(numbers: &[&str], make_bit_criteria: impl Fn(&[&str], usize) -> u8) -> String {
+    let num_columns = numbers[0].len();
+    let mut candidate_numbers = Vec::from(numbers);
     for column in 0..num_columns {
-        let most_common_bit =
-            most_common_bit(&oxygen_generator_rating_candidates, column).unwrap_or(b'1');
-
-        oxygen_generator_rating_candidates
-            .retain(|line| line.as_bytes()[column] == most_common_bit);
-        if oxygen_generator_rating_candidates.len() == 1 {
+        let bit_criteria = make_bit_criteria(&candidate_numbers, column);
+        candidate_numbers.retain(|line| line.as_bytes()[column] == bit_criteria);
+        if candidate_numbers.len() == 1 {
             break;
         }
     }
 
-    let mut co2_scrubber_rating_candidates: Vec<_> = input.lines().collect();
-    for column in 0..num_columns {
-        let least_common_bit =
-            least_common_bit(&co2_scrubber_rating_candidates, column).unwrap_or(b'0');
-
-        co2_scrubber_rating_candidates.retain(|line| line.as_bytes()[column] == least_common_bit);
-        if co2_scrubber_rating_candidates.len() == 1 {
-            break;
-        }
-    }
-
-    println!(
-        "O2: {:?}, CO2: {:?}",
-        oxygen_generator_rating_candidates, co2_scrubber_rating_candidates
-    );
-
-    usize::from_str_radix(oxygen_generator_rating_candidates[0], 2).unwrap()
-        * usize::from_str_radix(co2_scrubber_rating_candidates[0], 2).unwrap()
+    candidate_numbers[0].into()
 }
 
 fn most_common_bit(numbers: &[&str], column: usize) -> Option<u8> {
