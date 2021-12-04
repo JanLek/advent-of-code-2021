@@ -1,24 +1,13 @@
 #![allow(dead_code)]
 #![deny(clippy::all, clippy::pedantic)]
+#![feature(array_chunks)]
 
 use std::str::FromStr;
 
 fn part_1(input: &str) -> usize {
-    let mut lines = input.lines();
-    let numbers: Vec<usize> = lines
-        .next()
-        .unwrap()
-        .split(',')
-        .map(|n| n.parse().unwrap())
-        .collect();
+    let (numbers, boards) = parse_input(input);
 
-    let boards: Vec<BingoBoard> = input
-        .split("\n\n")
-        .skip(1)
-        .map(|board| board.parse().unwrap())
-        .collect();
-
-    for i in 1..numbers.len() {
+    for i in 0..numbers.len() {
         let marked_numbers = &numbers[0..=i];
         if let Some(winning_board) = boards.iter().find(|board| board.wins(marked_numbers)) {
             return winning_board.score(marked_numbers);
@@ -29,21 +18,9 @@ fn part_1(input: &str) -> usize {
 }
 
 fn part_2(input: &str) -> usize {
-    let mut lines = input.lines();
-    let numbers: Vec<usize> = lines
-        .next()
-        .unwrap()
-        .split(',')
-        .map(|n| n.parse().unwrap())
-        .collect();
+    let (numbers, mut boards) = parse_input(input);
 
-    let mut boards: Vec<BingoBoard> = input
-        .split("\n\n")
-        .skip(1)
-        .map(|board| board.parse().unwrap())
-        .collect();
-
-    for i in 1..numbers.len() {
+    for i in 0..numbers.len() {
         let marked_numbers = &numbers[0..=i];
         if boards.len() > 1 {
             boards.retain(|board| !board.wins(marked_numbers));
@@ -55,31 +32,40 @@ fn part_2(input: &str) -> usize {
     panic!("No winning board")
 }
 
-#[derive(Debug)]
+fn parse_input(input: &str) -> (Vec<usize>, Vec<BingoBoard>) {
+    let mut parts = input.split("\n\n");
+    let numbers: Vec<usize> = parts
+        .next()
+        .unwrap()
+        .split(',')
+        .map(|n| n.parse().unwrap())
+        .collect();
+    let boards: Vec<BingoBoard> = parts.map(|board| board.parse().unwrap()).collect();
+    (numbers, boards)
+}
+
 struct BingoBoard([usize; 25]);
 
 impl BingoBoard {
     fn wins(&self, marked_numbers: &[usize]) -> bool {
-        // Horizontal row win
-        if self
-            .0
-            .chunks(5)
-            .any(|row| row.iter().all(|n| marked_numbers.contains(n)))
-        {
-            return true;
-        }
+        let is_fully_marked =
+            |numbers: [usize; 5]| numbers.iter().all(|n| marked_numbers.contains(n));
+        self.rows().any(is_fully_marked) || self.columns().any(is_fully_marked)
+    }
 
-        // TODO vertical row win
-        for column_index in 0..5 {
-            if (0..5)
-                .map(|row_index| self.0[5 * row_index + column_index])
-                .all(|n| marked_numbers.contains(&n))
-            {
-                return true;
+    fn rows(&self) -> impl Iterator<Item = [usize; 5]> + '_ {
+        self.0.array_chunks::<5>().copied()
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    fn columns(&self) -> impl Iterator<Item = [usize; 5]> + '_ {
+        (0..5).map(|column_index| {
+            let mut column = [0; 5];
+            for row_index in 0..5 {
+                column[row_index] = self.0[5 * row_index + column_index];
             }
-        }
-
-        false
+            column
+        })
     }
 
     fn score(&self, marked_numbers: &[usize]) -> usize {
