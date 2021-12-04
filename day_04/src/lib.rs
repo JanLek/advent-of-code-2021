@@ -1,16 +1,18 @@
 #![allow(dead_code)]
 #![deny(clippy::all, clippy::pedantic)]
-#![feature(array_chunks)]
+#![feature(test)]
 
 use std::str::FromStr;
 
 fn part_1(input: &str) -> Result<usize, BingoError> {
-    let (numbers, boards) = parse_input(input)?;
+    let (numbers, mut boards) = parse_input(input)?;
 
-    for i in 0..numbers.len() {
-        let marked_numbers = &numbers[0..=i];
-        if let Some(winning_board) = boards.iter().find(|board| board.wins(marked_numbers)) {
-            return winning_board.score(marked_numbers);
+    for number in numbers {
+        for board in &mut boards {
+            board.mark(number);
+            if board.winner {
+                return Ok(board.score(number));
+            }
         }
     }
 
@@ -20,12 +22,17 @@ fn part_1(input: &str) -> Result<usize, BingoError> {
 fn part_2(input: &str) -> Result<usize, BingoError> {
     let (numbers, mut boards) = parse_input(input)?;
 
-    for i in 0..numbers.len() {
-        let marked_numbers = &numbers[0..=i];
+    for number in numbers {
         if boards.len() > 1 {
-            boards.retain(|board| !board.wins(marked_numbers));
-        } else if boards[0].wins(marked_numbers) {
-            return boards[0].score(marked_numbers);
+            for board in &mut boards {
+                board.mark(number);
+            }
+            boards = boards.into_iter().filter(|b| !b.winner).collect();
+        } else {
+            boards[0].mark(number);
+            if boards[0].winner {
+                return Ok(boards[0].score(number));
+            }
         }
     }
 
@@ -36,45 +43,41 @@ fn parse_input(input: &str) -> Result<(Vec<usize>, Vec<BingoBoard>), BingoError>
     let mut parts = input.split("\n\n");
     let numbers: Vec<usize> = parts
         .next()
-        .ok_or(BingoError::Parse)?
+        .ok_or(BingoError::InvalidInput)?
         .split(',')
-        .map(|n| n.parse().map_err(|_| BingoError::Parse))
+        .map(|n| n.parse().map_err(|_| BingoError::InvalidInput))
         .collect::<Result<_, _>>()?;
     let boards: Vec<BingoBoard> = parts.map(str::parse).collect::<Result<_, _>>()?;
     Ok((numbers, boards))
 }
 
-struct BingoBoard([usize; 25]);
+struct BingoBoard {
+    numbers: [BingoNumber; 25],
+    winner: bool,
+}
 
 impl BingoBoard {
-    fn wins(&self, marked_numbers: &[usize]) -> bool {
-        let is_fully_marked =
-            |numbers: [usize; 5]| numbers.iter().all(|n| marked_numbers.contains(n));
-        self.rows().any(is_fully_marked) || self.columns().any(is_fully_marked)
+    fn mark(&mut self, number: usize) {
+        if let Some(index) = self.numbers.iter().position(|&n| n == number) {
+            self.numbers[index] = BingoNumber::Marked;
+            self.check_win(index);
+        }
     }
 
-    fn rows(&self) -> impl Iterator<Item = [usize; 5]> + '_ {
-        self.0.array_chunks::<5>().copied()
+    fn check_win(&mut self, index: usize) {
+        let row = index / 5;
+        let column = index % 5;
+
+        let mut row_numbers = self.numbers[row * 5..row * 5 + 5].iter();
+        let mut column_numbers = (0..5).map(|row| &self.numbers[5 * row + column]);
+
+        self.winner =
+            row_numbers.all(BingoNumber::is_marked) || column_numbers.all(BingoNumber::is_marked);
     }
 
-    #[allow(clippy::needless_range_loop)]
-    fn columns(&self) -> impl Iterator<Item = [usize; 5]> + '_ {
-        (0..5).map(|column_index| {
-            let mut column = [0; 5];
-            for row_index in 0..5 {
-                column[row_index] = self.0[5 * row_index + column_index];
-            }
-            column
-        })
-    }
-
-    fn score(&self, marked_numbers: &[usize]) -> Result<usize, BingoError> {
-        Ok(self
-            .0
-            .iter()
-            .filter(|n| !marked_numbers.contains(n))
-            .sum::<usize>()
-            * marked_numbers.last().ok_or(BingoError::NoMarkedNumbers)?)
+    fn score(&self, last_number: usize) -> usize {
+        let sum: usize = self.numbers.iter().filter_map(<Option<usize>>::from).sum();
+        sum * last_number
     }
 }
 
@@ -82,30 +85,79 @@ impl FromStr for BingoBoard {
     type Err = BingoError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
-        let numbers: Vec<usize> = input
-            .lines()
-            .flat_map(|line| line.split(' ').collect::<Vec<&str>>())
+        let mut numbers_iter = input
+            .split(|c| c == '\n' || c == ' ')
             .filter(|s| !s.is_empty())
-            .map(|s| s.parse().map_err(|_| BingoError::Parse))
-            .collect::<Result<_, _>>()?;
+            .map(BingoNumber::from_str);
+        let mut numbers = [BingoNumber::Unmarked(0); 25];
+        for number in &mut numbers {
+            *number = numbers_iter
+                .next()
+                .unwrap_or(Err(BingoError::InvalidInput))?;
+        }
+        Ok(Self {
+            numbers,
+            winner: false,
+        })
+    }
+}
 
-        let mut array: [usize; 25] = Default::default();
-        array[..25].clone_from_slice(&numbers[..25]);
+#[derive(Clone, Copy)]
+enum BingoNumber {
+    Unmarked(usize),
+    Marked,
+}
 
-        Ok(Self(array))
+impl BingoNumber {
+    fn is_marked(&self) -> bool {
+        match self {
+            Self::Unmarked(_) => false,
+            Self::Marked => true,
+        }
+    }
+}
+
+impl FromStr for BingoNumber {
+    type Err = BingoError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        input
+            .parse::<usize>()
+            .map(BingoNumber::Unmarked)
+            .map_err(|_| BingoError::InvalidInput)
+    }
+}
+
+impl From<&BingoNumber> for Option<usize> {
+    fn from(&bingo_number: &BingoNumber) -> Self {
+        match bingo_number {
+            BingoNumber::Unmarked(n) => Some(n),
+            BingoNumber::Marked => None,
+        }
+    }
+}
+
+impl PartialEq<usize> for BingoNumber {
+    fn eq(&self, rhs: &usize) -> bool {
+        match self {
+            Self::Unmarked(n) => n == rhs,
+            Self::Marked => false,
+        }
     }
 }
 
 #[derive(Debug)]
 enum BingoError {
-    Parse,
+    InvalidInput,
     NoWinningBoard,
-    NoMarkedNumbers,
 }
 
 #[cfg(test)]
 mod tests {
+    extern crate test;
+
     use super::*;
+    use test::Bencher;
 
     const SAMPLE_INPUT: &str = include_str!("sample_input.txt");
     const INPUT: &str = include_str!("input.txt");
@@ -117,5 +169,15 @@ mod tests {
 
         assert_eq!(part_2(SAMPLE_INPUT).unwrap(), 1_924);
         assert_eq!(part_2(INPUT).unwrap(), 25_925);
+    }
+
+    #[bench]
+    fn bench_part_1(b: &mut Bencher) {
+        b.iter(|| part_1(INPUT));
+    }
+
+    #[bench]
+    fn bench_part_2(b: &mut Bencher) {
+        b.iter(|| part_2(INPUT));
     }
 }
