@@ -4,8 +4,8 @@
 
 use std::str::FromStr;
 
-fn part_1(input: &str) -> usize {
-    let (numbers, boards) = parse_input(input);
+fn part_1(input: &str) -> Result<usize, BingoError> {
+    let (numbers, boards) = parse_input(input)?;
 
     for i in 0..numbers.len() {
         let marked_numbers = &numbers[0..=i];
@@ -14,11 +14,11 @@ fn part_1(input: &str) -> usize {
         }
     }
 
-    panic!("No winning board")
+    Err(BingoError::NoWinningBoard)
 }
 
-fn part_2(input: &str) -> usize {
-    let (numbers, mut boards) = parse_input(input);
+fn part_2(input: &str) -> Result<usize, BingoError> {
+    let (numbers, mut boards) = parse_input(input)?;
 
     for i in 0..numbers.len() {
         let marked_numbers = &numbers[0..=i];
@@ -29,19 +29,19 @@ fn part_2(input: &str) -> usize {
         }
     }
 
-    panic!("No winning board")
+    Err(BingoError::NoWinningBoard)
 }
 
-fn parse_input(input: &str) -> (Vec<usize>, Vec<BingoBoard>) {
+fn parse_input(input: &str) -> Result<(Vec<usize>, Vec<BingoBoard>), BingoError> {
     let mut parts = input.split("\n\n");
     let numbers: Vec<usize> = parts
         .next()
-        .unwrap()
+        .ok_or(BingoError::Parse)?
         .split(',')
-        .map(|n| n.parse().unwrap())
-        .collect();
-    let boards: Vec<BingoBoard> = parts.map(|board| board.parse().unwrap()).collect();
-    (numbers, boards)
+        .map(|n| n.parse().map_err(|_| BingoError::Parse))
+        .collect::<Result<_, _>>()?;
+    let boards: Vec<BingoBoard> = parts.map(str::parse).collect::<Result<_, _>>()?;
+    Ok((numbers, boards))
 }
 
 struct BingoBoard([usize; 25]);
@@ -68,31 +68,39 @@ impl BingoBoard {
         })
     }
 
-    fn score(&self, marked_numbers: &[usize]) -> usize {
-        self.0
+    fn score(&self, marked_numbers: &[usize]) -> Result<usize, BingoError> {
+        Ok(self
+            .0
             .iter()
             .filter(|n| !marked_numbers.contains(n))
             .sum::<usize>()
-            * marked_numbers.last().unwrap()
+            * marked_numbers.last().ok_or(BingoError::NoMarkedNumbers)?)
     }
 }
 
 impl FromStr for BingoBoard {
-    type Err = ();
+    type Err = BingoError;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         let numbers: Vec<usize> = input
             .lines()
             .flat_map(|line| line.split(' ').collect::<Vec<&str>>())
             .filter(|s| !s.is_empty())
-            .map(|s| s.parse().unwrap())
-            .collect();
+            .map(|s| s.parse().map_err(|_| BingoError::Parse))
+            .collect::<Result<_, _>>()?;
 
         let mut array: [usize; 25] = Default::default();
         array[..25].clone_from_slice(&numbers[..25]);
 
         Ok(Self(array))
     }
+}
+
+#[derive(Debug)]
+enum BingoError {
+    Parse,
+    NoWinningBoard,
+    NoMarkedNumbers,
 }
 
 #[cfg(test)]
@@ -104,10 +112,10 @@ mod tests {
 
     #[test]
     fn test() {
-        assert_eq!(part_1(SAMPLE_INPUT), 4_512);
-        assert_eq!(part_1(INPUT), 2_496);
+        assert_eq!(part_1(SAMPLE_INPUT).unwrap(), 4_512);
+        assert_eq!(part_1(INPUT).unwrap(), 2_496);
 
-        assert_eq!(part_2(SAMPLE_INPUT), 1_924);
-        assert_eq!(part_2(INPUT), 25_925);
+        assert_eq!(part_2(SAMPLE_INPUT).unwrap(), 1_924);
+        assert_eq!(part_2(INPUT).unwrap(), 25_925);
     }
 }
