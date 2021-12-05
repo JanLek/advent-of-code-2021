@@ -3,10 +3,12 @@
 #![feature(int_abs_diff, test)]
 
 use std::{
-    cmp::max,
-    iter::Rev,
+    cmp::{
+        max,
+        Ordering::{Equal, Greater, Less},
+    },
     num::ParseIntError,
-    ops::{Index, IndexMut, RangeInclusive},
+    ops::{Index, IndexMut},
     str::FromStr,
 };
 
@@ -66,13 +68,13 @@ impl Index<Coordinate> for Grid {
     type Output = u8;
 
     fn index(&self, Coordinate(x, y): Coordinate) -> &Self::Output {
-        &self.0[(y * Self::NUM_COLUMS + x) as usize]
+        &self.0[y * Self::NUM_COLUMS + x]
     }
 }
 
 impl IndexMut<Coordinate> for Grid {
     fn index_mut(&mut self, Coordinate(x, y): Coordinate) -> &mut Self::Output {
-        &mut self.0[(y * Self::NUM_COLUMS + x)]
+        &mut self.0[y * Self::NUM_COLUMS + x]
     }
 }
 
@@ -88,9 +90,9 @@ impl Line {
 
     fn coordinates(&self) -> impl Iterator<Item = Coordinate> {
         let Self(Coordinate(x1, y1), Coordinate(x2, y2)) = *self;
-        let mut x = Range::new(x1, x2);
-        let mut y = Range::new(y1, y2);
         let num_coordinates = max(x1.abs_diff(x2), y1.abs_diff(y2)) + 1; // +1 because the range is inclusive
+        let mut x = range(x1, x2);
+        let mut y = range(y1, y2);
 
         (0..num_coordinates)
             .map(move |_| Coordinate(x.next().unwrap_or(x2), y.next().unwrap_or(y2)))
@@ -101,36 +103,19 @@ impl FromStr for Line {
     type Err = InvalidInputError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (start, finish) = s.split_once(" -> ").ok_or(InvalidInputError)?;
-        Ok(Self(start.parse()?, finish.parse()?))
+        let (start, end) = s.split_once(" -> ").ok_or(InvalidInputError)?;
+        Ok(Self(start.parse()?, end.parse()?))
     }
 }
 
-// Need custom range type, in case start < finish
-enum Range {
-    Increasing(RangeInclusive<usize>),
-    Decreasing(Rev<RangeInclusive<usize>>),
-}
-
-impl Range {
-    fn new(start: usize, end: usize) -> Self {
-        if start <= end {
-            Self::Increasing(start..=end)
-        } else {
-            Self::Decreasing((end..=start).rev())
-        }
-    }
-}
-
-impl Iterator for Range {
-    type Item = usize;
-
-    fn next(&mut self) -> Option<usize> {
-        match self {
-            Self::Increasing(range) => range.next(),
-            Self::Decreasing(range) => range.next(),
-        }
-    }
+// Need custom range function, in case start < end
+fn range(start: usize, end: usize) -> impl Iterator<Item = usize> {
+    let start_vs_end = start.cmp(&end);
+    std::iter::successors(Some(start), move |&n| match start_vs_end {
+        Less => Some(n + 1),
+        Equal => Some(n),
+        Greater => Some(n.saturating_sub(1)),
+    })
 }
 
 #[derive(Clone, Copy, Debug, Default)]
