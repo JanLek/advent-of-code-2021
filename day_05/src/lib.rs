@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 #![deny(clippy::all, clippy::pedantic)]
-#![feature(int_abs_diff)]
+#![feature(int_abs_diff, test)]
 
 use std::{
     cmp::max,
@@ -156,7 +156,10 @@ impl From<ParseIntError> for InvalidInputError {
 
 #[cfg(test)]
 mod tests {
+    extern crate test;
+
     use super::*;
+    use test::Bencher;
 
     const SAMPLE_INPUT: &str = include_str!("sample_input.txt");
     const INPUT: &str = include_str!("input.txt");
@@ -168,5 +171,15 @@ mod tests {
 
         assert_eq!(part_2::<10>(SAMPLE_INPUT).unwrap(), 12);
         assert_eq!(part_2::<500>(INPUT).unwrap(), 17_882);
+    }
+
+    #[bench]
+    fn bench_part_1(b: &mut Bencher) {
+        b.iter(|| part_1::<500>(INPUT));
+    }
+
+    #[bench]
+    fn bench_part_2(b: &mut Bencher) {
+        b.iter(|| part_2::<500>(INPUT));
     }
 }
