@@ -49,18 +49,18 @@ fn parse_input<const N: usize>(input: &str) -> Result<[Line; N], InvalidInputErr
     Ok(lines)
 }
 
-struct Grid([u8; 1_000_000]);
+struct Grid([[u8; 1_000]; 1_000]);
 
 impl Grid {
     const NUM_ROWS: usize = 1_000;
     const NUM_COLUMS: usize = 1_000;
 
     fn new() -> Self {
-        Self([0; Self::NUM_ROWS * Self::NUM_COLUMS])
+        Self([[0; Self::NUM_COLUMS]; Self::NUM_ROWS])
     }
 
     fn num_overlaps(&self) -> usize {
-        self.0.iter().filter(|&&x| x > 1).count()
+        self.0.iter().flatten().filter(|&&x| x > 1).count()
     }
 }
 
@@ -68,13 +68,13 @@ impl Index<Coordinate> for Grid {
     type Output = u8;
 
     fn index(&self, Coordinate(x, y): Coordinate) -> &Self::Output {
-        &self.0[y * Self::NUM_COLUMS + x]
+        &self.0[y][x]
     }
 }
 
 impl IndexMut<Coordinate> for Grid {
     fn index_mut(&mut self, Coordinate(x, y): Coordinate) -> &mut Self::Output {
-        &mut self.0[y * Self::NUM_COLUMS + x]
+        &mut self.0[y][x]
     }
 }
 
