@@ -7,6 +7,7 @@ use std::{
         max,
         Ordering::{Equal, Greater, Less},
     },
+    iter::successors,
     num::ParseIntError,
     ops::{Index, IndexMut},
     str::FromStr,
@@ -49,7 +50,7 @@ fn parse_input<const N: usize>(input: &str) -> Result<[Line; N], InvalidInputErr
     Ok(lines)
 }
 
-struct Grid([[u8; 1_000]; 1_000]);
+struct Grid([[u8; Self::NUM_COLUMS]; Self::NUM_ROWS]);
 
 impl Grid {
     const NUM_ROWS: usize = 1_000;
@@ -111,7 +112,7 @@ impl FromStr for Line {
 // Need custom range function, in case start < end
 fn range(start: usize, end: usize) -> impl Iterator<Item = usize> {
     let start_vs_end = start.cmp(&end);
-    std::iter::successors(Some(start), move |&n| match start_vs_end {
+    successors(Some(start), move |&n| match start_vs_end {
         Less => Some(n + 1),
         Equal => Some(n),
         Greater => Some(n.saturating_sub(1)),
