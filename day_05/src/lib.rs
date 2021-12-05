@@ -4,8 +4,9 @@
 
 use std::{
     cmp::max,
+    iter::Rev,
     num::ParseIntError,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, RangeInclusive},
     str::FromStr,
 };
 
@@ -89,7 +90,7 @@ impl Line {
         let Self(Coordinate(x1, y1), Coordinate(x2, y2)) = *self;
         let mut x = Range::new(x1, x2);
         let mut y = Range::new(y1, y2);
-        let num_coordinates = max(x.len(), y.len());
+        let num_coordinates = max(x1.abs_diff(x2) + 1, y1.abs_diff(y2) + 1);
 
         (0..num_coordinates)
             .map(move |_| Coordinate(x.next().unwrap_or(x2), y.next().unwrap_or(y2)))
@@ -106,50 +107,29 @@ impl FromStr for Line {
 }
 
 // Need custom range type, in case start < finish
-struct Range {
-    increasing: bool,
-    start: usize,
-    end: usize,
-    current: usize,
-    done: bool,
+enum Range {
+    Increasing(RangeInclusive<usize>),
+    Decreasing(Rev<RangeInclusive<usize>>),
 }
 
 impl Range {
     fn new(start: usize, end: usize) -> Self {
-        Self {
-            increasing: start <= end,
-            start,
-            end,
-            current: start,
-            done: false,
+        if start <= end {
+            Self::Increasing(start..=end)
+        } else {
+            Self::Decreasing((end..=start).rev())
         }
-    }
-
-    fn len(&self) -> usize {
-        self.start.abs_diff(self.end) + 1 // +1, because this is an inclusive range
     }
 }
 
 impl Iterator for Range {
     type Item = usize;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.done {
-            return None;
+    fn next(&mut self) -> Option<usize> {
+        match self {
+            Self::Increasing(range) => range.next(),
+            Self::Decreasing(range) => range.next(),
         }
-
-        if self.current == self.end {
-            self.done = true;
-            return Some(self.current);
-        }
-
-        let value = self.current;
-        if self.increasing {
-            self.current += 1;
-        } else {
-            self.current -= 1;
-        }
-        Some(value)
     }
 }
 
