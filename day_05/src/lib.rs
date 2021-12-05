@@ -90,7 +90,7 @@ impl Line {
         let Self(Coordinate(x1, y1), Coordinate(x2, y2)) = *self;
         let mut x = Range::new(x1, x2);
         let mut y = Range::new(y1, y2);
-        let num_coordinates = max(x1.abs_diff(x2) + 1, y1.abs_diff(y2) + 1);
+        let num_coordinates = max(x1.abs_diff(x2), y1.abs_diff(y2)) + 1; // +1 because the range is inclusive
 
         (0..num_coordinates)
             .map(move |_| Coordinate(x.next().unwrap_or(x2), y.next().unwrap_or(y2)))
