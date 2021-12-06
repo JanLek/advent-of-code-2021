@@ -2,48 +2,27 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::{num::ParseIntError, str::FromStr};
+use std::str::FromStr;
 
-fn part_1<const N: usize>(input: &str) -> Result<usize, InvalidInputError> {
-    let school = parse_input::<N>(input)?;
-    Ok(num_fish_after_n_days(school, 80))
+fn part_1(input: &str) -> usize {
+    num_fish_after_n_days(input.parse().unwrap(), 80)
 }
 
-fn part_2<const N: usize>(input: &str) -> Result<usize, InvalidInputError> {
-    let school = parse_input::<N>(input)?;
-    Ok(num_fish_after_n_days(school, 256))
+fn part_2(input: &str) -> usize {
+    num_fish_after_n_days(input.parse().unwrap(), 256)
 }
 
-fn num_fish_after_n_days<const N: usize>(school: [LanternFish; N], n: usize) -> usize {
-    let mut school = School::from(school);
+fn num_fish_after_n_days(mut school: School, n: usize) -> usize {
     for _ in 0..n {
         school.advance_one_day();
     }
     school.len()
 }
 
-fn parse_input<const N: usize>(input: &str) -> Result<[LanternFish; N], InvalidInputError> {
-    let mut nums = input.split(',');
-    let mut school = [LanternFish::default(); N];
-    for fish in &mut school {
-        let num = nums.next().ok_or(InvalidInputError)?;
-        *fish = num.parse()?;
-    }
-    Ok(school)
-}
-
 #[derive(Debug)]
 struct School([usize; 9]);
 
 impl School {
-    fn from<const N: usize>(school: [LanternFish; N]) -> Self {
-        let mut fish_counts = [0; 9];
-        for fish in school {
-            fish_counts[fish.days_to_reproduce() as usize] += 1;
-        }
-        Self(fish_counts)
-    }
-
     fn advance_one_day(&mut self) {
         let num_reproductions = self.0[0];
         for days in 0..8 {
@@ -58,29 +37,16 @@ impl School {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-struct LanternFish(u8);
-
-impl LanternFish {
-    fn days_to_reproduce(self) -> u8 {
-        self.0
-    }
-}
-
-impl FromStr for LanternFish {
-    type Err = InvalidInputError;
+impl FromStr for School {
+    type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(s.parse()?))
-    }
-}
-
-#[derive(Debug)]
-struct InvalidInputError;
-
-impl From<ParseIntError> for InvalidInputError {
-    fn from(_: ParseIntError) -> Self {
-        Self
+        let bytes = s.as_bytes();
+        let mut counts = [0; 9];
+        for i in (0..bytes.len()).step_by(2) {
+            counts[(bytes[i] - b'0') as usize] += 1;
+        }
+        Ok(Self(counts))
     }
 }
 
@@ -96,20 +62,20 @@ mod tests {
 
     #[test]
     fn test() {
-        assert_eq!(part_1::<5>(SAMPLE_INPUT).unwrap(), 5_934);
-        assert_eq!(part_1::<300>(INPUT).unwrap(), 380_612);
+        assert_eq!(part_1(SAMPLE_INPUT), 5_934);
+        assert_eq!(part_1(INPUT), 380_612);
 
-        assert_eq!(part_2::<5>(SAMPLE_INPUT).unwrap(), 26_984_457_539);
-        assert_eq!(part_2::<300>(INPUT).unwrap(), 1_710_166_656_900);
+        assert_eq!(part_2(SAMPLE_INPUT), 26_984_457_539);
+        assert_eq!(part_2(INPUT), 1_710_166_656_900);
     }
 
     #[bench]
     fn bench_part_1(b: &mut Bencher) {
-        b.iter(|| part_1::<300>(INPUT));
+        b.iter(|| part_1(INPUT));
     }
 
     #[bench]
     fn bench_part_2(b: &mut Bencher) {
-        b.iter(|| part_2::<300>(INPUT));
+        b.iter(|| part_2(INPUT));
     }
 }
