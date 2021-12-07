@@ -5,13 +5,17 @@
 fn part_1(input: &str) -> usize {
     let counts = parse_input(input);
     (0..=2000)
-        .map(|target_position| calculate_fuel_cost(&counts, target_position))
+        .map(|target_position| calculate_fuel_cost_incorrectly(&counts, target_position))
         .min()
         .unwrap()
 }
 
-fn part_2(_input: &str) -> usize {
-    todo!()
+fn part_2(input: &str) -> usize {
+    let counts = parse_input(input);
+    (0..=2000)
+        .map(|target_position| calculate_fuel_cost(&counts, target_position))
+        .min()
+        .unwrap()
 }
 
 fn parse_input(input: &str) -> [u8; 2000] {
@@ -25,13 +29,32 @@ fn parse_input(input: &str) -> [u8; 2000] {
     positions
 }
 
-fn calculate_fuel_cost(positions: &[u8; 2000], target_position: usize) -> usize {
+fn calculate_fuel_cost_incorrectly(positions: &[u8; 2000], target_position: usize) -> usize {
     positions
         .iter()
         .enumerate()
         .fold(0, |cost, (position, &num_crab_submarines)| {
             cost + (num_crab_submarines as usize) * position.abs_diff(target_position)
         })
+}
+
+fn calculate_fuel_cost(positions: &[u8; 2000], target_position: usize) -> usize {
+    positions
+        .iter()
+        .enumerate()
+        .fold(0, |cost, (position, &num_crab_submarines)| {
+            let distance = position.abs_diff(target_position);
+            if num_crab_submarines == 0 || distance == 0 {
+                cost
+            } else {
+                cost + (num_crab_submarines as usize)
+                    * fuel_cost_for_distance(position.abs_diff(target_position))
+            }
+        })
+}
+
+fn fuel_cost_for_distance(n: usize) -> usize {
+    (1..=n).reduce(|a, b| a + b).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -47,10 +70,10 @@ mod tests {
     #[test]
     fn test() {
         assert_eq!(part_1(SAMPLE_INPUT), 37);
-        assert_eq!(part_1(INPUT), 0);
+        assert_eq!(part_1(INPUT), 349_357);
 
-        assert_eq!(part_2(SAMPLE_INPUT), 0);
-        assert_eq!(part_2(INPUT), 0);
+        assert_eq!(part_2(SAMPLE_INPUT), 168);
+        assert_eq!(part_2(INPUT), 96_708_205);
     }
 
     #[bench]
