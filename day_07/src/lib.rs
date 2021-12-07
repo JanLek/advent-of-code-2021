@@ -43,13 +43,8 @@ fn calculate_fuel_cost(positions: &[u8; 2000], target_position: usize) -> usize 
         .iter()
         .enumerate()
         .fold(0, |cost, (position, &num_crab_submarines)| {
-            let distance = position.abs_diff(target_position);
-            if num_crab_submarines == 0 || distance == 0 {
-                cost
-            } else {
-                cost + (num_crab_submarines as usize)
-                    * fuel_cost_for_distance(position.abs_diff(target_position))
-            }
+            cost + (num_crab_submarines as usize)
+                * fuel_cost_for_distance(position.abs_diff(target_position))
         })
 }
 
@@ -78,13 +73,11 @@ mod tests {
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_1(b: &mut Bencher) {
         b.iter(|| part_1(INPUT));
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_2(b: &mut Bencher) {
         b.iter(|| part_2(INPUT));
     }
