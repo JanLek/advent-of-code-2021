@@ -16,7 +16,7 @@ fn part_2(input: &str) -> usize {
 }
 
 fn find_minimal_fuel_cost(
-    crab_submarine_positions: &[u8; 2000],
+    crab_submarine_positions: &[u8],
     calculate_fuel_cost_for_distance: fn(usize) -> usize,
 ) -> usize {
     (0..=crab_submarine_positions.len())
@@ -31,8 +31,8 @@ fn find_minimal_fuel_cost(
         .unwrap()
 }
 
-fn parse_input(input: &str) -> [u8; 2000] {
-    let mut positions = [0; 2000];
+fn parse_input(input: &str) -> [u8; 2_000] {
+    let mut positions = [0; 2_000];
     for position in input.split(',') {
         positions[position.parse::<usize>().unwrap()] += 1;
     }
@@ -40,7 +40,7 @@ fn parse_input(input: &str) -> [u8; 2000] {
 }
 
 fn calculate_total_fuel_cost(
-    positions: &[u8; 2000],
+    positions: &[u8],
     target_position: usize,
     fuel_cost_for_distance: fn(usize) -> usize,
 ) -> usize {
