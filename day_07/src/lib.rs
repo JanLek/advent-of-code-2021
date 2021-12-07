@@ -19,7 +19,7 @@ fn find_minimal_fuel_cost(
     crab_submarine_positions: &[u8; 2000],
     calculate_fuel_cost_for_distance: fn(usize) -> usize,
 ) -> usize {
-    (0..=2000)
+    (0..=crab_submarine_positions.len())
         .map(|target_position| {
             calculate_total_fuel_cost(
                 crab_submarine_positions,
