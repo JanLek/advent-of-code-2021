@@ -2,8 +2,6 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::collections::HashMap;
-
 const NUM_SEGMENTS: [u8; 10] = [6, 2, 5, 5, 4, 5, 6, 3, 7, 8];
 
 fn part_1(input: &str) -> usize {
@@ -44,85 +42,92 @@ where
     array
 }
 
+const EMPTY_STRING: String = String::new();
+
+#[allow(clippy::too_many_lines)]
 fn deduce_output_value(
     (signal_patterns, digit_output_values): ([String; 10], [String; 4]),
 ) -> usize {
-    let mut signal_patterns_by_len: HashMap<_, _> = HashMap::with_capacity(6);
-    for pattern in signal_patterns {
-        signal_patterns_by_len
-            .entry(pattern.len())
-            .or_insert_with(|| Vec::with_capacity(3))
-            .push(pattern);
-    }
-
-    let one = &signal_patterns_by_len.get(&2).unwrap()[0];
-    let four = &signal_patterns_by_len.get(&4).unwrap()[0];
-    let seven = &signal_patterns_by_len.get(&3).unwrap()[0];
-    let eight = &signal_patterns_by_len.get(&7).unwrap()[0];
-
-    let two_three_or_five = signal_patterns_by_len.get(&5).unwrap();
-    let three = two_three_or_five
-        .iter()
-        .find(|pattern| one.chars().all(|c| pattern.contains(c)))
-        .unwrap();
-    let four_sans_one: Vec<_> = four.chars().filter(|&c| !one.contains(c)).collect();
-    let five = two_three_or_five
-        .iter()
-        .find(|&pattern| pattern != three && four_sans_one.iter().all(|&c| pattern.contains(c)))
-        .unwrap();
-    let two = two_three_or_five
-        .iter()
-        .find(|&pattern| pattern != three && pattern != five)
-        .unwrap();
-
-    let zero_six_or_nine = signal_patterns_by_len.get(&6).unwrap();
-    let six = zero_six_or_nine
-        .iter()
-        .find(|pattern| !one.chars().all(|c| pattern.contains(c)))
-        .unwrap();
-    let nine = zero_six_or_nine
-        .iter()
-        .find(|&pattern| pattern != six && four.chars().all(|c| pattern.contains(c)))
-        .unwrap();
-    let zero = zero_six_or_nine
-        .iter()
-        .find(|&pattern| pattern != six && pattern != nine)
-        .unwrap();
-
-    let find_digit = |s: &String| {
-        if s == zero {
-            0
-        } else if s == one {
-            1
-        } else if s == two {
-            2
-        } else if s == three {
-            3
-        } else if s == four {
-            4
-        } else if s == five {
-            5
-        } else if s == six {
-            6
-        } else if s == seven {
-            7
-        } else if s == eight {
-            8
-        } else if s == nine {
-            9
-        } else {
-            dbg!(s);
-            panic!()
-        }
+    let find_by_length = |length| {
+        signal_patterns
+            .iter()
+            .find(|pattern| pattern.len() == length)
+            .unwrap()
     };
+    let filter_by_length = |length| {
+        let mut iterator = signal_patterns
+            .iter()
+            .filter(|&pattern| pattern.len() == length);
+
+        let mut array = [&signal_patterns[0]; 3];
+        for i in 0..3 {
+            array[i] = iterator.next().unwrap();
+        }
+        array
+    };
+
+    let empty_string = String::new(); // TODO make constant
+    let mut patterns: [&String; 10] = [&empty_string; 10];
+
+    // Unique length digits
+    patterns[1] = find_by_length(2);
+    patterns[4] = find_by_length(4);
+    patterns[7] = find_by_length(3);
+    patterns[8] = find_by_length(7);
+
+    let two_three_or_five = filter_by_length(5);
+    patterns[3] = pick_by_match(&two_three_or_five, patterns[1]);
+    let four_sans_one: String = patterns[4]
+        .chars()
+        .filter(|&c| !patterns[1].contains(c))
+        .collect();
+    patterns[5] = two_three_or_five
+        .iter()
+        .find(|&&pattern| {
+            pattern != patterns[3] && four_sans_one.chars().all(|c| pattern.contains(c))
+        })
+        .unwrap();
+    patterns[2] = pick_by_exclusion(&two_three_or_five, &[patterns[3], patterns[5]]);
+
+    let zero_six_or_nine = filter_by_length(6);
+    patterns[6] = zero_six_or_nine
+        .iter()
+        .find(|pattern| !patterns[1].chars().all(|c| pattern.contains(c)))
+        .unwrap();
+    patterns[9] = zero_six_or_nine
+        .iter()
+        .find(|&&pattern| {
+            pattern != patterns[6] && four_sans_one.chars().all(|c| pattern.contains(c))
+        })
+        .unwrap();
+    patterns[0] = pick_by_exclusion(&zero_six_or_nine, &[patterns[6], patterns[9]]);
 
     digit_output_values
         .iter()
         .rev()
         .enumerate()
         .fold(0, |result, (index, digit_output_value)| {
-            result + find_digit(digit_output_value) * 10_usize.pow(index as u32)
+            result
+                + patterns
+                    .iter()
+                    .position(|&pattern| pattern == digit_output_value)
+                    .unwrap()
+                    * 10_usize.pow(index as u32)
         })
+}
+
+fn pick_by_match<'a>(patterns: &[&'a String], match_pattern: &str) -> &'a String {
+    patterns
+        .iter()
+        .find(|pattern| match_pattern.chars().all(|c| pattern.contains(c)))
+        .unwrap()
+}
+
+fn pick_by_exclusion<'a>(patterns: &[&'a String], excluded: &[&'a String]) -> &'a String {
+    patterns
+        .iter()
+        .find(|pattern| !excluded.contains(pattern))
+        .unwrap()
 }
 
 #[cfg(test)]
