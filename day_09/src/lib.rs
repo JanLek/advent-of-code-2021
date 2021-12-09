@@ -2,45 +2,62 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::{ops::Index, str::FromStr};
+use std::{collections::HashSet, iter::once, ops::Index, str::FromStr};
 
 fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
     let height_map: HeightMap<R, C> = input.parse().unwrap();
     height_map
         .low_points()
-        .map(|point| (point + 1) as usize)
+        .map(|coordinate| height_map[coordinate] as usize + 1)
         .sum()
 }
 
 fn part_2<const R: usize, const C: usize>(input: &str) -> usize {
-    todo!();
+    let height_map: HeightMap<R, C> = input.parse().unwrap();
+    let mut basins: Vec<_> = height_map
+        .low_points()
+        .map(|coordinate| height_map.basin_coordinates(coordinate).len())
+        .collect();
+    basins.sort_unstable();
+    basins.into_iter().rev().take(3).product()
 }
 
 #[derive(Debug)]
 struct HeightMap<const R: usize, const C: usize>([[u8; C]; R]);
 
 impl<const R: usize, const C: usize> HeightMap<R, C> {
-    fn low_points(&self) -> impl Iterator<Item = u8> + '_ {
+    fn basin_coordinates(&self, coordinate: (usize, usize)) -> HashSet<(usize, usize)> {
+        if self[coordinate] == 8 {
+            return once(coordinate).collect();
+        }
+
+        Self::adjacent_points(coordinate)
+            .filter(|&c| self[c] == self[coordinate] + 1)
+            .flat_map(|c| self.basin_coordinates(c)) // Recursion FTW
+            .chain(once(coordinate)) // Combine this coordinate with adjacent coordinates
+            .collect()
+    }
+
+    fn low_points(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
         (0..R)
             .flat_map(|row| (0..C).map(move |column| (row, column)))
             .filter(|&coordinate| {
-                self.adjecent_points(coordinate)
-                    .all(|adjecent_point| adjecent_point > self[coordinate])
+                Self::adjacent_points(coordinate)
+                    .all(|adjecent_point| self[adjecent_point] > self[coordinate])
             })
-            .map(|coordinate| self[coordinate])
     }
 
-    fn adjecent_points(&self, (row, column): (usize, usize)) -> impl Iterator<Item = u8> {
+    fn adjacent_points((row, column): (usize, usize)) -> impl Iterator<Item = (usize, usize)> {
         [
-            row.checked_sub(1).map(|r| self[(r, column)]),
+            row.checked_sub(1).map(|r| (r, column)),
             if row + 1 < R {
-                Some(self[(row + 1, column)])
+                Some((row + 1, column))
             } else {
                 None
             },
-            column.checked_sub(1).map(|c| self[(row, c)]),
+            column.checked_sub(1).map(|c| (row, c)),
             if column + 1 < C {
-                Some(self[(row, column + 1)])
+                Some((row, column + 1))
             } else {
                 None
             },
@@ -64,9 +81,10 @@ impl<const R: usize, const C: usize> FromStr for HeightMap<R, C> {
         let mut grid = [[0; C]; R];
 
         let mut heights = s.lines().flat_map(str::bytes).map(|byte| byte - b'0');
-        for row in 0..R {
-            for column in 0..C {
-                grid[row][column] = heights.next().unwrap();
+
+        for row in &mut grid {
+            for height in row {
+                *height = heights.next().unwrap();
             }
         }
 
@@ -89,8 +107,10 @@ mod tests {
         assert_eq!(part_1::<5, 10>(SAMPLE_INPUT), 15);
         assert_eq!(part_1::<100, 100>(INPUT), 537);
 
-        // assert_eq!(part_2::<5, 10>(SAMPLE_INPUT), 0);
-        // assert_eq!(part_2::<100, 100>(INPUT), 0);
+        assert_eq!(part_2::<5, 10>(SAMPLE_INPUT), 1_134);
+        assert_ne!(part_2::<100, 100>(INPUT), 675_783);
+        assert!(part_2::<100, 100>(INPUT) > 675_783);
+        assert_eq!(part_2::<100, 100>(INPUT), 0);
     }
 
     #[bench]
