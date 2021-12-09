@@ -15,13 +15,14 @@ fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
         .sum()
 }
 
+#[allow(clippy::needless_collect)]
 fn part_2<const R: usize, const C: usize>(input: &str) -> usize {
     let mut height_map: HeightMap<R, C> = input.parse().unwrap();
-    let mut largest_basins = LargestBasins::new();
-    for low_point in height_map.clone().low_points() {
-        largest_basins.add(height_map.basin_size(low_point));
-    }
-    largest_basins.product()
+    let low_points: Vec<_> = height_map.low_points().collect();
+    let basin_sizes = low_points
+        .into_iter()
+        .map(|low_point| height_map.basin_size(low_point));
+    top_3(basin_sizes).into_iter().product()
 }
 
 #[derive(Clone, Debug)]
@@ -104,29 +105,21 @@ impl<const R: usize, const C: usize> FromStr for HeightMap<R, C> {
     }
 }
 
-struct LargestBasins([usize; 3]);
-
-impl LargestBasins {
-    fn new() -> Self {
-        Self([0; 3])
-    }
-
-    fn add(&mut self, basin_size: usize) {
-        if basin_size > self.0[0] {
-            self.0[2] = self.0[1];
-            self.0[1] = self.0[0];
-            self.0[0] = basin_size;
-        } else if basin_size > self.0[1] {
-            self.0[2] = self.0[1];
-            self.0[1] = basin_size;
-        } else if basin_size > self.0[2] {
-            self.0[2] = basin_size;
+fn top_3(iterator: impl Iterator<Item = usize>) -> [usize; 3] {
+    let mut array = [0; 3];
+    for value in iterator {
+        if value > array[0] {
+            array[2] = array[1];
+            array[1] = array[0];
+            array[0] = value;
+        } else if value > array[1] {
+            array[2] = array[1];
+            array[1] = value;
+        } else if value > array[2] {
+            array[2] = value;
         }
     }
-
-    fn product(self) -> usize {
-        self.0.into_iter().product()
-    }
+    array
 }
 
 #[cfg(test)]
