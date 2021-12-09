@@ -32,7 +32,7 @@ impl<const R: usize, const C: usize> HeightMap<R, C> {
         }
 
         Self::adjacent_points(coordinate)
-            .filter(|&c| self[c] == self[coordinate] + 1)
+            .filter(|&c| self[c] > self[coordinate] && self[c] != 9)
             .flat_map(|c| self.basin_coordinates(c)) // Recursion FTW
             .chain(once(coordinate)) // Combine this coordinate with adjacent coordinates
             .collect()
@@ -108,9 +108,7 @@ mod tests {
         assert_eq!(part_1::<100, 100>(INPUT), 537);
 
         assert_eq!(part_2::<5, 10>(SAMPLE_INPUT), 1_134);
-        assert_ne!(part_2::<100, 100>(INPUT), 675_783);
-        assert!(part_2::<100, 100>(INPUT) > 675_783);
-        assert_eq!(part_2::<100, 100>(INPUT), 0);
+        assert_eq!(part_2::<100, 100>(INPUT), 1_142_757);
     }
 
     #[bench]
@@ -119,7 +117,6 @@ mod tests {
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_2(b: &mut Bencher) {
         b.iter(|| part_2::<100, 100>(INPUT));
     }
