@@ -2,7 +2,10 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::{ops::Index, str::FromStr};
+use std::{
+    ops::{Index, IndexMut},
+    str::FromStr,
+};
 
 fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
     let height_map: HeightMap<R, C> = input.parse().unwrap();
@@ -14,7 +17,6 @@ fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
 
 fn part_2<const R: usize, const C: usize>(input: &str) -> usize {
     let mut height_map: HeightMap<R, C> = input.parse().unwrap();
-
     let mut largest_basins = LargestBasins::new();
     for low_point in height_map.clone().low_points() {
         largest_basins.add(height_map.basin_size(low_point));
@@ -28,11 +30,11 @@ struct HeightMap<const R: usize, const C: usize>([[u8; C]; R]);
 impl<const R: usize, const C: usize> HeightMap<R, C> {
     fn basin_size(&mut self, coordinate: (usize, usize)) -> usize {
         let height = self[coordinate];
-        self.0[coordinate.0][coordinate.1] = 9; // Mark as seen
+        self[coordinate] = u8::MAX; // Mark as seen
         Self::adjacent_points(coordinate)
             .filter_map(|c| {
                 let adjacent_height = self[c];
-                if adjacent_height > height && adjacent_height != 9 {
+                if adjacent_height > height && adjacent_height < 9 {
                     Some(self.basin_size(c)) // Recursion FTW
                 } else {
                     None
@@ -76,6 +78,12 @@ impl<const R: usize, const C: usize> Index<(usize, usize)> for HeightMap<R, C> {
 
     fn index(&self, (row, column): (usize, usize)) -> &Self::Output {
         &self.0[row][column]
+    }
+}
+
+impl<const R: usize, const C: usize> IndexMut<(usize, usize)> for HeightMap<R, C> {
+    fn index_mut(&mut self, (row, column): (usize, usize)) -> &mut u8 {
+        &mut self.0[row][column]
     }
 }
 
