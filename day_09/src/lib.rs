@@ -15,7 +15,7 @@ fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
         .sum()
 }
 
-#[allow(clippy::needless_collect)]
+#[allow(clippy::needless_collect)] // Need to collect low_points, because otherwise there is aliasing
 fn part_2<const R: usize, const C: usize>(input: &str) -> usize {
     let mut height_map: HeightMap<R, C> = input.parse().unwrap();
     let low_points: Vec<_> = height_map.low_points().collect();
@@ -92,15 +92,12 @@ impl<const R: usize, const C: usize> FromStr for HeightMap<R, C> {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut grid = [[0; C]; R];
-
         let mut heights = s.lines().flat_map(str::bytes).map(|byte| byte - b'0');
-
         for row in &mut grid {
             for height in row {
                 *height = heights.next().unwrap();
             }
         }
-
         Ok(Self(grid))
     }
 }
