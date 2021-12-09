@@ -27,10 +27,6 @@ struct HeightMap<const R: usize, const C: usize>([[u8; C]; R]);
 
 impl<const R: usize, const C: usize> HeightMap<R, C> {
     fn basin_coordinates(&self, coordinate: (usize, usize)) -> HashSet<(usize, usize)> {
-        if self[coordinate] == 8 {
-            return once(coordinate).collect();
-        }
-
         Self::adjacent_points(coordinate)
             .filter(|&c| self[c] > self[coordinate] && self[c] != 9)
             .flat_map(|c| self.basin_coordinates(c)) // Recursion FTW
