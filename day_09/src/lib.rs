@@ -2,7 +2,7 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::{collections::HashSet, iter::once, ops::Index, str::FromStr};
+use std::{ops::Index, str::FromStr};
 
 fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
     let height_map: HeightMap<R, C> = input.parse().unwrap();
@@ -13,25 +13,33 @@ fn part_1<const R: usize, const C: usize>(input: &str) -> usize {
 }
 
 fn part_2<const R: usize, const C: usize>(input: &str) -> usize {
-    let height_map: HeightMap<R, C> = input.parse().unwrap();
-    let mut basins: Vec<_> = height_map
-        .low_points()
-        .map(|coordinate| height_map.basin_coordinates(coordinate).len())
-        .collect();
-    basins.sort_unstable();
-    basins.into_iter().rev().take(3).product()
+    let mut height_map: HeightMap<R, C> = input.parse().unwrap();
+
+    let mut largest_basins = LargestBasins::new();
+    for low_point in height_map.clone().low_points() {
+        largest_basins.add(height_map.basin_size(low_point));
+    }
+    largest_basins.product()
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct HeightMap<const R: usize, const C: usize>([[u8; C]; R]);
 
 impl<const R: usize, const C: usize> HeightMap<R, C> {
-    fn basin_coordinates(&self, coordinate: (usize, usize)) -> HashSet<(usize, usize)> {
+    fn basin_size(&mut self, coordinate: (usize, usize)) -> usize {
+        let height = self[coordinate];
+        self.0[coordinate.0][coordinate.1] = 9; // Mark as seen
         Self::adjacent_points(coordinate)
-            .filter(|&c| self[c] > self[coordinate] && self[c] != 9)
-            .flat_map(|c| self.basin_coordinates(c)) // Recursion FTW
-            .chain(once(coordinate)) // Combine this coordinate with adjacent coordinates
-            .collect()
+            .filter_map(|c| {
+                let adjacent_height = self[c];
+                if adjacent_height > height && adjacent_height != 9 {
+                    Some(self.basin_size(c)) // Recursion FTW
+                } else {
+                    None
+                }
+            })
+            .sum::<usize>()
+            + 1
     }
 
     fn low_points(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
@@ -85,6 +93,31 @@ impl<const R: usize, const C: usize> FromStr for HeightMap<R, C> {
         }
 
         Ok(Self(grid))
+    }
+}
+
+struct LargestBasins([usize; 3]);
+
+impl LargestBasins {
+    fn new() -> Self {
+        Self([0; 3])
+    }
+
+    fn add(&mut self, basin_size: usize) {
+        if basin_size > self.0[0] {
+            self.0[2] = self.0[1];
+            self.0[1] = self.0[0];
+            self.0[0] = basin_size;
+        } else if basin_size > self.0[1] {
+            self.0[2] = self.0[1];
+            self.0[1] = basin_size;
+        } else if basin_size > self.0[2] {
+            self.0[2] = basin_size;
+        }
+    }
+
+    fn product(self) -> usize {
+        self.0.into_iter().product()
     }
 }
 
