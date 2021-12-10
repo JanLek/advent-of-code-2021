@@ -29,8 +29,8 @@ fn part_2(input: &str) -> usize {
                 })
         })
         .collect();
-    scores.sort_unstable();
-    scores[scores.len() / 2]
+    let middle = scores.len() / 2;
+    *scores.select_nth_unstable(middle).1
 }
 
 fn parse_line(line: &str) -> ParseResult {
