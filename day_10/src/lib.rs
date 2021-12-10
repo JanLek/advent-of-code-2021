@@ -20,14 +20,15 @@ fn part_2(input: &str) -> usize {
         .lines()
         .filter_map(|line| match first_illegal_character(line) {
             ParseResult::InvalidCharacter(_) => None,
-            ParseResult::Incomplete(completion_characters) => Some(
-                completion_characters
-                    .into_iter()
-                    .rev()
-                    .fold(0, |score, character| {
-                        score * 5 + autocomplete_points(character)
-                    }),
-            ),
+            ParseResult::Incomplete(completion_characters) => Some(completion_characters),
+        })
+        .map(|completion_characters| {
+            completion_characters
+                .iter()
+                .rev()
+                .fold(0, |score, &character| {
+                    score * 5 + autocomplete_points(character)
+                })
         })
         .collect();
     scores.sort_unstable();
