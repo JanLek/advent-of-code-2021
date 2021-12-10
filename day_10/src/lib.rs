@@ -7,7 +7,7 @@ const CHUNK_CHARACTERS: [(u8, u8); 4] = [(b'(', b')'), (b'[', b']'), (b'{', b'}'
 fn part_1(input: &str) -> usize {
     input
         .lines()
-        .filter_map(|line| match first_illegal_character(line) {
+        .filter_map(|line| match parse_line(line) {
             ParseResult::InvalidCharacter(c) => Some(c),
             ParseResult::Incomplete(_) => None,
         })
@@ -18,7 +18,7 @@ fn part_1(input: &str) -> usize {
 fn part_2(input: &str) -> usize {
     let mut scores: Vec<_> = input
         .lines()
-        .filter_map(|line| match first_illegal_character(line) {
+        .filter_map(|line| match parse_line(line) {
             ParseResult::InvalidCharacter(_) => None,
             ParseResult::Incomplete(completion_characters) => Some(completion_characters),
         })
@@ -35,7 +35,7 @@ fn part_2(input: &str) -> usize {
     scores[scores.len() / 2]
 }
 
-fn first_illegal_character(line: &str) -> ParseResult {
+fn parse_line(line: &str) -> ParseResult {
     let mut closing_characters = Vec::with_capacity(line.len());
     for character in line.bytes() {
         if let Some(&(_, closing_character)) =
