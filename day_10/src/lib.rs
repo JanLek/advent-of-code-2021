@@ -2,8 +2,6 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::iter::{IntoIterator, Take};
-
 const CHUNK_CHARACTERS: [(u8, u8); 4] = [(b'(', b')'), (b'[', b']'), (b'{', b'}'), (b'<', b'>')];
 
 fn part_1(input: &str) -> usize {
@@ -26,9 +24,9 @@ fn part_2(input: &str) -> usize {
         })
         .map(|completion_characters| {
             completion_characters
-                .into_iter()
+                .iter()
                 .rev()
-                .fold(0, |score, character| {
+                .fold(0, |score, &character| {
                     score * 5 + autocomplete_points(character)
                 })
         })
@@ -38,7 +36,7 @@ fn part_2(input: &str) -> usize {
 }
 
 fn parse_line(line: &str) -> ParseResult {
-    let mut closing_characters = PoorMansStack::new();
+    let mut closing_characters = Vec::with_capacity(line.len());
     for character in line.bytes() {
         if let Some(&(_, closing_character)) =
             CHUNK_CHARACTERS.iter().find(|&&(o, _)| o == character)
@@ -58,48 +56,7 @@ fn parse_line(line: &str) -> ParseResult {
 
 enum ParseResult {
     InvalidCharacter(u8),
-    Incomplete(PoorMansStack),
-}
-
-struct PoorMansStack {
-    bytes: [u8; 100],
-    size: usize,
-}
-
-impl PoorMansStack {
-    fn new() -> Self {
-        Self {
-            bytes: [0; 100],
-            size: 0,
-        }
-    }
-
-    fn push(&mut self, byte: u8) {
-        if self.size >= self.bytes.len() {
-            panic!("Poor man's stack overflow")
-        }
-
-        self.bytes[self.size] = byte;
-        self.size += 1;
-    }
-
-    fn pop(&mut self) -> Option<u8> {
-        if self.size == 0 {
-            return None;
-        }
-
-        self.size -= 1;
-        Some(self.bytes[self.size])
-    }
-}
-
-impl IntoIterator for PoorMansStack {
-    type Item = u8;
-    type IntoIter = Take<std::array::IntoIter<Self::Item, 100>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.bytes.into_iter().take(self.size)
-    }
+    Incomplete(Vec<u8>),
 }
 
 fn syntax_error_points(byte: u8) -> usize {
