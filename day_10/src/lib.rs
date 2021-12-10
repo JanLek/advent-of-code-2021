@@ -2,8 +2,6 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-const CHUNK_CHARACTERS: [(u8, u8); 4] = [(b'(', b')'), (b'[', b']'), (b'{', b'}'), (b'<', b'>')];
-
 fn part_1(input: &str) -> usize {
     input
         .lines()
@@ -38,16 +36,14 @@ fn part_2(input: &str) -> usize {
 fn parse_line(line: &str) -> ParseResult {
     let mut closing_characters = Vec::with_capacity(line.len());
     for character in line.bytes() {
-        if let Some(&(_, closing_character)) =
-            CHUNK_CHARACTERS.iter().find(|&&(o, _)| o == character)
-        {
+        if let Some(closing_character) = closing_character(character) {
             closing_characters.push(closing_character);
         } else if let Some(expected) = closing_characters.pop() {
             if expected != character {
                 return ParseResult::InvalidCharacter(character);
             }
         } else {
-            panic!("This line should never be reached");
+            unimplemented!("Correct lines are not supported");
         }
     }
 
@@ -57,6 +53,16 @@ fn parse_line(line: &str) -> ParseResult {
 enum ParseResult {
     InvalidCharacter(u8),
     Incomplete(Vec<u8>),
+}
+
+fn closing_character(byte: u8) -> Option<u8> {
+    match byte {
+        b'(' => Some(b')'),
+        b'[' => Some(b']'),
+        b'{' => Some(b'}'),
+        b'<' => Some(b'>'),
+        _ => None,
+    }
 }
 
 fn syntax_error_points(byte: u8) -> usize {
