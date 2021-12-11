@@ -18,8 +18,14 @@ fn part_1(input: &str) -> usize {
     num_flashes
 }
 
-fn part_2(_input: &str) -> usize {
-    todo!()
+fn part_2(input: &str) -> usize {
+    let mut grid: Grid = input.parse().unwrap();
+    for step in 0.. {
+        if grid.simulate_step() == 100 {
+            return step + 1;
+        }
+    }
+    panic!("The bioluminescent dumbo octopuses did not synchronise their flash!")
 }
 
 struct Grid([[u8; 10]; 10]);
@@ -151,20 +157,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_part_2() {
-        assert_eq!(part_2(SAMPLE_INPUT), 0);
-        assert_eq!(part_2(INPUT), 0);
+        assert_eq!(part_2(SAMPLE_INPUT), 195);
+        assert_eq!(part_2(INPUT), 346);
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_1(b: &mut Bencher) {
         b.iter(|| part_1(INPUT));
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_2(b: &mut Bencher) {
         b.iter(|| part_2(INPUT));
     }
