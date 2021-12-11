@@ -3,7 +3,6 @@
 #![feature(bool_to_option, test)]
 
 use std::{
-    collections::HashSet,
     fmt::{Display, Formatter, Result as FormatResult},
     ops::{Index, IndexMut},
     str::FromStr,
@@ -36,31 +35,30 @@ impl Grid {
             *octupus += 1;
         }
 
-        let mut flashed = HashSet::with_capacity(100);
-        let mut will_flash = self.will_flash_next(&flashed);
+        let mut num_flashed = 0;
+        let mut will_flash = self.will_flash_next();
         while !will_flash.is_empty() {
             for coordinate in will_flash {
                 self[coordinate] = 0;
-                flashed.insert(coordinate);
+                num_flashed += 1;
                 for adjacent_coordinate in adjacent_coordinates(coordinate) {
-                    self[adjacent_coordinate] += 1;
+                    if self[adjacent_coordinate] != 0 {
+                        self[adjacent_coordinate] += 1;
+                    }
                 }
             }
-            will_flash = self.will_flash_next(&flashed);
+            will_flash = self.will_flash_next();
         }
-        for &coordinate in &flashed {
-            self[coordinate] = 0;
-        }
-        flashed.len()
+        num_flashed
     }
 
     fn all_octopuses(&mut self) -> impl Iterator<Item = &mut u8> {
         self.0.iter_mut().flat_map(|row| row.iter_mut())
     }
 
-    fn will_flash_next(&self, flashed: &HashSet<Coordinate>) -> Vec<Coordinate> {
+    fn will_flash_next(&self) -> Vec<Coordinate> {
         all_coordinates()
-            .filter(|&coordinate| self[coordinate] > 9 && !flashed.contains(&coordinate))
+            .filter(|&coordinate| self[coordinate] != 0 && self[coordinate] > 9)
             .collect()
     }
 }
@@ -104,7 +102,7 @@ impl Display for Grid {
                         .collect::<Vec<_>>(),
                 )
             };
-            writeln!(formatter, "{}", as_str);
+            writeln!(formatter, "{}", as_str)?;
         }
         Ok(())
     }
