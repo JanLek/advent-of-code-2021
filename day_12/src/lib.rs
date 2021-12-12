@@ -2,35 +2,33 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn part_1(input: &str) -> usize {
     let connections = build_connections_map(input);
-
-    let start = Cave::parse("start");
-    let end = Cave::parse("end");
-    let mut candidate_paths = vec![vec![start]];
-    let mut complete_paths: Vec<Vec<Cave>> = Vec::new();
-
-    while let Some(candidate_path) = candidate_paths.pop() {
-        let currently_at = candidate_path.last().unwrap();
-        let can_go_to = connections.get(currently_at).unwrap();
-        for &cave in can_go_to {
-            if cave == end {
-                complete_paths.push(add_to_path(&candidate_path, cave));
-            } else if cave.is_large() || !candidate_path.contains(&cave) {
-                candidate_paths.push(add_to_path(&candidate_path, cave));
-            } else {
-                // This path does not work, skip.
-            }
-        }
-    }
-
-    complete_paths.len()
+    find_num_possible_paths(&connections, |path, cave| {
+        cave.is_large() || !path.contains(&cave)
+    })
 }
 
-fn part_2(_input: &str) -> usize {
-    todo!()
+fn part_2(input: &str) -> usize {
+    let connections = build_connections_map(input);
+    let start = Cave::parse("start");
+    find_num_possible_paths(&connections, move |path, cave| {
+        if cave == start {
+            return false;
+        }
+        if cave.is_large() || !path.contains(&cave) {
+            return true;
+        }
+
+        let small_caves_visited: Vec<Cave> = path.iter().copied().filter(Cave::is_small).collect();
+        let small_caves_visited_deduped: HashSet<&Cave> = HashSet::from_iter(&small_caves_visited);
+        let has_visited_small_cave_twice: bool =
+            small_caves_visited.len() != small_caves_visited_deduped.len();
+
+        !has_visited_small_cave_twice
+    })
 }
 
 fn build_connections_map(input: &str) -> HashMap<Cave, Vec<Cave>> {
@@ -42,6 +40,32 @@ fn build_connections_map(input: &str) -> HashMap<Cave, Vec<Cave>> {
             map.entry(from).or_default().push(to);
             map
         })
+}
+
+fn find_num_possible_paths(
+    connections: &HashMap<Cave, Vec<Cave>>,
+    can_be_added: impl Fn(&Vec<Cave>, Cave) -> bool,
+) -> usize {
+    let start = Cave::parse("start");
+    let end = Cave::parse("end");
+    let mut candidate_paths = vec![vec![start]];
+    let mut complete_paths: Vec<Vec<Cave>> = Vec::new();
+
+    while let Some(candidate_path) = candidate_paths.pop() {
+        let currently_at = candidate_path.last().unwrap();
+        let can_go_to = connections.get(currently_at).unwrap();
+        for &cave in can_go_to {
+            if cave == end {
+                complete_paths.push(add_to_path(&candidate_path, cave));
+            } else if can_be_added(&candidate_path, cave) {
+                candidate_paths.push(add_to_path(&candidate_path, cave));
+            } else {
+                // This path does not work, skip.
+            }
+        }
+    }
+
+    complete_paths.len()
 }
 
 fn add_to_path<'a>(path: &[Cave<'a>], cave: Cave<'a>) -> Vec<Cave<'a>> {
@@ -70,6 +94,10 @@ impl<'a> Cave<'a> {
             Self::Large(_) => true,
             Self::Small(_) => false,
         }
+    }
+
+    fn is_small(&self) -> bool {
+        !self.is_large()
     }
 }
 
@@ -103,10 +131,11 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_part_2() {
-        assert_eq!(part_2(SAMPLE_INPUT), 0);
-        assert_eq!(part_2(INPUT), 0);
+        assert_eq!(part_2(SMALL_SAMPLE_INPUT), 36);
+        assert_eq!(part_2(SAMPLE_INPUT), 103);
+        assert_eq!(part_2(LARGE_SAMPLE_INPUT), 3509);
+        assert_eq!(part_2(INPUT), 118_242);
     }
 
     #[bench]
@@ -115,7 +144,6 @@ mod tests {
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_2(b: &mut Bencher) {
         b.iter(|| part_2(INPUT));
     }
