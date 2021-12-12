@@ -2,11 +2,11 @@
 #![deny(clippy::all, clippy::pedantic)]
 #![feature(test)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 fn part_1(input: &str) -> usize {
     let connections = build_connections_map(input);
-    find_num_possible_paths(&connections, |path, cave| {
+    count_possible_paths(&connections, |path, cave| {
         cave.is_large() || !path.contains(&cave)
     })
 }
@@ -14,64 +14,48 @@ fn part_1(input: &str) -> usize {
 fn part_2(input: &str) -> usize {
     let connections = build_connections_map(input);
     let start = Cave::parse("start");
-    find_num_possible_paths(&connections, move |path, cave| {
-        if cave == start {
-            return false;
-        }
-        if cave.is_large() || !path.contains(&cave) {
-            return true;
-        }
-
-        let small_caves_visited: Vec<Cave> = path.iter().copied().filter(Cave::is_small).collect();
-        let small_caves_visited_deduped: HashSet<&Cave> = HashSet::from_iter(&small_caves_visited);
-        let has_visited_small_cave_twice: bool =
-            small_caves_visited.len() != small_caves_visited_deduped.len();
-
-        !has_visited_small_cave_twice
+    count_possible_paths(&connections, move |path, cave| {
+        cave.is_large() || (cave != start && (!path.used_double_visit || !path.contains(&cave)))
     })
 }
 
 fn build_connections_map(input: &str) -> HashMap<Cave, Vec<Cave>> {
     input
         .lines()
-        .map(Connection::parse)
-        .flat_map(|Connection(left, right)| [(left, right), (right, left)])
-        .fold(HashMap::new(), |mut map, (from, to)| {
+        .flat_map(|line| {
+            let (left, right) = line.split_once('-').unwrap();
+            let left = Cave::parse(left);
+            let right = Cave::parse(right);
+            [(left, right), (right, left)]
+        })
+        .fold(HashMap::with_capacity(15), |mut map, (from, to)| {
             map.entry(from).or_default().push(to);
             map
         })
 }
 
-fn find_num_possible_paths(
+fn count_possible_paths(
     connections: &HashMap<Cave, Vec<Cave>>,
-    can_be_added: impl Fn(&Vec<Cave>, Cave) -> bool,
+    can_be_added: impl Fn(&Path, Cave) -> bool,
 ) -> usize {
     let start = Cave::parse("start");
     let end = Cave::parse("end");
-    let mut candidate_paths = vec![vec![start]];
-    let mut complete_paths: Vec<Vec<Cave>> = Vec::new();
+    let mut candidate_paths = vec![Path::from(vec![start])];
+    let mut num_possible_paths = 0;
 
     while let Some(candidate_path) = candidate_paths.pop() {
-        let currently_at = candidate_path.last().unwrap();
+        let currently_at = candidate_path.last_cave();
         let can_go_to = connections.get(currently_at).unwrap();
         for &cave in can_go_to {
             if cave == end {
-                complete_paths.push(add_to_path(&candidate_path, cave));
+                num_possible_paths += 1;
             } else if can_be_added(&candidate_path, cave) {
-                candidate_paths.push(add_to_path(&candidate_path, cave));
-            } else {
-                // This path does not work, skip.
+                candidate_paths.push(candidate_path.new_with(cave));
             }
         }
     }
 
-    complete_paths.len()
-}
-
-fn add_to_path<'a>(path: &[Cave<'a>], cave: Cave<'a>) -> Vec<Cave<'a>> {
-    let mut new_path = Vec::from(path);
-    new_path.push(cave);
-    new_path
+    num_possible_paths
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -101,12 +85,45 @@ impl<'a> Cave<'a> {
     }
 }
 
-struct Connection<'a>(Cave<'a>, Cave<'a>);
+struct Path<'a> {
+    caves: Vec<Cave<'a>>,
+    used_double_visit: bool,
+}
 
-impl<'a> Connection<'a> {
-    fn parse(input: &'a str) -> Self {
-        let (left, right) = input.split_once('-').unwrap();
-        Self(Cave::parse(left), Cave::parse(right))
+impl<'a> Path<'a> {
+    fn from(caves: Vec<Cave<'a>>) -> Self {
+        Self {
+            caves,
+            used_double_visit: false,
+        }
+    }
+
+    fn last_cave(&self) -> &Cave {
+        self.caves.last().unwrap()
+    }
+
+    fn caves(&self) -> impl Iterator<Item = &Cave> {
+        self.caves.iter()
+    }
+
+    fn len(&self) -> usize {
+        self.caves.len()
+    }
+
+    fn contains(&self, cave: &Cave) -> bool {
+        self.caves.contains(cave)
+    }
+
+    fn new_with(&self, cave: Cave<'a>) -> Self {
+        let mut new_path = self.caves.clone();
+        new_path.push(cave);
+
+        let used_double_visit = self.used_double_visit || (cave.is_small() && self.contains(&cave));
+
+        Self {
+            caves: new_path,
+            used_double_visit,
+        }
     }
 }
 
