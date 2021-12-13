@@ -17,14 +17,13 @@ fn part_1(input: &str) -> Result<usize, ParseError> {
     Ok(grid.num_points())
 }
 
-fn part_2(input: &str) -> Result<usize, ParseError> {
+fn part_2(input: &str) -> Result<String, ParseError> {
     let (coordinates, fold_alongs) = parse_input(input)?;
     let mut grid: Grid = coordinates.into();
     for fold_along in fold_alongs {
         grid.fold(fold_along);
     }
-    println!("{}", grid);
-    Ok(grid.num_points())
+    Ok(format!("{}", grid))
 }
 
 fn parse_input(input: &str) -> Result<(Vec<Coordinate>, Vec<FoldAlong>), ParseError> {
@@ -187,8 +186,11 @@ mod tests {
 
     #[test]
     fn test_part_2() {
-        assert_eq!(part_2(SAMPLE_INPUT).unwrap(), 16);
-        assert_eq!(part_2(INPUT).unwrap(), 98); // Code: FGKCKBZG
+        assert_eq!(
+            part_2(SAMPLE_INPUT).unwrap(),
+            include_str!("sample_output.txt")
+        );
+        assert_eq!(part_2(INPUT).unwrap(), include_str!("output.txt"));
     }
 
     #[bench]
