@@ -9,7 +9,8 @@ use std::{
 };
 
 fn part_1(input: &str) -> Result<usize, ParseError> {
-    let (mut polymer, pair_insertion_rules) = parse_input(input)?;
+    // let (polymer, pair_insertion_rules) = parse_input(input)?;
+    // Ok(calculate_result(polymer, &pair_insertion_rules, 10))
     for _ in 0..10 {
         polymer.apply(&pair_insertion_rules);
     }
@@ -49,6 +50,60 @@ fn parse_byte_array(input: &str) -> Result<[u8; 2], ParseError> {
 
 fn parse_byte(input: &str) -> Result<u8, ParseError> {
     input.bytes().next().ok_or(ParseError)
+}
+
+type ElementCounts = HashMap<u8, usize>;
+type ElementCountCache = HashMap<([u8; 2], usize), ElementCounts>;
+
+fn calculate_result(
+    polymer: Polymer,
+    pair_insertion_rules: &PairInsertionRules,
+    steps: usize,
+) -> usize {
+    let mut cache: ElementCountCache = HashMap::new();
+    let mut counts = polymer
+        .0
+        .windows(2)
+        .map(|pair| count_elements([pair[0], pair[1]], steps, pair_insertion_rules, &mut cache))
+        .flat_map(|counts| counts.into_iter())
+        .fold(HashMap::new(), |mut counts, (element, count)| {
+            *counts.entry(element).or_insert(0) += count;
+            counts
+        });
+
+    // Subtract double counted elements.
+    for element in polymer.0.iter().skip(1).take(polymer.0.len() - 2) {
+        *counts.get_mut(&element).unwrap() -= 1;
+    }
+
+    counts.values().max().unwrap() - counts.values().min().unwrap()
+}
+
+fn count_elements<'a, 'b>(
+    pair: [u8; 2],
+    steps: usize,
+    pair_insertion_rules: &'a PairInsertionRules,
+    cache: &'b mut ElementCountCache,
+) -> ElementCounts {
+    if let Some(result) = cache.get(&(pair, steps)) {
+        result.clone()
+    } else if steps == 0 {
+        let result: ElementCounts = pair.into_iter().map(|element| (element, 1)).collect();
+        cache.insert((pair, steps), result.clone());
+        result
+    } else {
+        let insert = *pair_insertion_rules.get(&pair).unwrap();
+        let mut result = [[pair[0], insert], [insert, pair[1]]]
+            .into_iter()
+            .map(|pair| count_elements(pair, steps - 1, pair_insertion_rules, cache))
+            .flat_map(|counts| counts.into_iter())
+            .fold(HashMap::new(), |mut counts, (element, count)| {
+                *counts.entry(element).or_insert(0) += count;
+                counts
+            });
+        *result.get_mut(&insert).unwrap() -= 1;
+        result
+    }
 }
 
 struct Polymer(Vec<u8>);
