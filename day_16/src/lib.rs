@@ -59,12 +59,12 @@ fn parse_packet(input: &str) -> Result<(Packet, &str), ParseError> {
         match length_type_id {
             0 => {
                 let (length, remaining) = parse_n_bit_number(15, remaining)?;
-                let (sub_packets, remaining) = parse_length_of_sub_packets(length, remaining)?;
+                let (packets, remaining) = parse_length_of_packets(length, remaining)?;
                 Ok((
                     Packet::Operation {
                         version,
                         operation_type,
-                        packets: sub_packets,
+                        packets,
                     },
                     remaining,
                 ))
@@ -109,10 +109,7 @@ fn parse_value(input: &str) -> Result<(usize, &str), ParseError> {
     ))
 }
 
-fn parse_length_of_sub_packets(
-    length: usize,
-    input: &str,
-) -> Result<(Vec<Packet>, &str), ParseError> {
+fn parse_length_of_packets(length: usize, input: &str) -> Result<(Vec<Packet>, &str), ParseError> {
     let mut length_of_parsed_sub_packets = 0;
     let mut sub_packets: Vec<Packet> = Vec::new();
     let mut remaining = input;
