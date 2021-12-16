@@ -12,8 +12,14 @@ fn part_1(input: &str) -> Result<usize, ParseError> {
     }
 }
 
-fn part_2(_input: &str) -> Result<usize, ParseError> {
-    todo!()
+fn part_2(input: &str) -> Result<usize, ParseError> {
+    let bits = convert_hex_to_binary(input)?;
+    let (packet, remaining) = parse_packet(&bits)?;
+    if remaining.bytes().all(|c| c == b'0') {
+        Ok(packet.value())
+    } else {
+        Err(ParseError)
+    }
 }
 
 fn convert_hex_to_binary(hex: &str) -> Result<String, ParseError> {
@@ -56,7 +62,13 @@ fn parse_packet(input: &str) -> Result<(Packet, &str), ParseError> {
             number.push_str(group);
             r = remaining;
         }
-        Ok((Packet::Literal { version }, r))
+        Ok((
+            Packet::Literal {
+                version,
+                value: usize::from_str_radix(&number, 2).unwrap(),
+            },
+            r,
+        ))
     } else {
         let (length_type_id, remaining) = parse_n_bit_number(1, remaining)?;
         match length_type_id {
@@ -74,6 +86,7 @@ fn parse_packet(input: &str) -> Result<(Packet, &str), ParseError> {
                 Ok((
                     Packet::Operation {
                         version,
+                        operation_type: type_id.try_into()?,
                         packets: sub_packets,
                     },
                     r,
@@ -91,6 +104,7 @@ fn parse_packet(input: &str) -> Result<(Packet, &str), ParseError> {
                 Ok((
                     Packet::Operation {
                         version,
+                        operation_type: type_id.try_into()?,
                         packets: sub_packets,
                     },
                     r,
@@ -101,13 +115,14 @@ fn parse_packet(input: &str) -> Result<(Packet, &str), ParseError> {
     }
 }
 
-#[derive(Debug)]
 enum Packet {
     Literal {
         version: usize,
+        value: usize,
     },
     Operation {
         version: usize,
+        operation_type: OperationType,
         packets: Vec<Packet>,
     },
 }
@@ -115,16 +130,83 @@ enum Packet {
 impl Packet {
     fn version(&self) -> usize {
         match *self {
-            Self::Literal { version } | Self::Operation { version, .. } => version,
+            Self::Literal { version, .. } | Self::Operation { version, .. } => version,
         }
     }
 
     fn sum_versions(&self) -> usize {
         match self {
-            Self::Literal { version } => *version,
-            Self::Operation { version, packets } => {
-                version + packets.iter().map(Self::sum_versions).sum::<usize>()
-            }
+            Self::Literal { version, .. } => *version,
+            Self::Operation {
+                version, packets, ..
+            } => version + packets.iter().map(Self::sum_versions).sum::<usize>(),
+        }
+    }
+
+    fn value(&self) -> usize {
+        match self {
+            Self::Literal { value, .. } => *value,
+            Self::Operation {
+                packets,
+                operation_type,
+                ..
+            } => match operation_type {
+                OperationType::Sum => packets.iter().map(Packet::value).sum(),
+                OperationType::Product => packets.iter().map(Packet::value).product(),
+                OperationType::Minimum => packets.iter().map(Packet::value).min().unwrap(),
+                OperationType::Maximum => packets.iter().map(Packet::value).max().unwrap(),
+                OperationType::SingleNumber => panic!(),
+                OperationType::GreaterThan => {
+                    if packets[0].value() > packets[1].value() {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                OperationType::LessThan => {
+                    if packets[0].value() < packets[1].value() {
+                        1
+                    } else {
+                        0
+                    }
+                }
+                OperationType::EqualTo => {
+                    if packets[0].value() == packets[1].value() {
+                        1
+                    } else {
+                        0
+                    }
+                }
+            },
+        }
+    }
+}
+
+enum OperationType {
+    Sum,
+    Product,
+    Minimum,
+    Maximum,
+    SingleNumber,
+    GreaterThan,
+    LessThan,
+    EqualTo,
+}
+
+impl TryFrom<usize> for OperationType {
+    type Error = ParseError;
+
+    fn try_from(operation_type: usize) -> Result<Self, Self::Error> {
+        match operation_type {
+            0 => Ok(Self::Sum),
+            1 => Ok(Self::Product),
+            2 => Ok(Self::Minimum),
+            3 => Ok(Self::Maximum),
+            4 => Ok(Self::SingleNumber),
+            5 => Ok(Self::GreaterThan),
+            6 => Ok(Self::LessThan),
+            7 => Ok(Self::EqualTo),
+            _ => Err(ParseError),
         }
     }
 }
@@ -155,9 +237,17 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_part_2() {
-        assert_eq!(part_2(INPUT).unwrap(), 0);
+        assert_eq!(part_2("C200B40A82").unwrap(), 3);
+        assert_eq!(part_2("04005AC33890").unwrap(), 54);
+        assert_eq!(part_2("880086C3E88112").unwrap(), 7);
+        assert_eq!(part_2("CE00C43D881120").unwrap(), 9);
+        assert_eq!(part_2("D8005AC2A8F0").unwrap(), 1);
+        assert_eq!(part_2("F600BC2D8F").unwrap(), 0);
+        assert_eq!(part_2("9C005AC2F8F0").unwrap(), 0);
+        assert_eq!(part_2("9C0141080250320F1802104A08").unwrap(), 1);
+
+        assert_eq!(part_2(INPUT).unwrap(), 739_303_923_668);
     }
 
     #[bench]
