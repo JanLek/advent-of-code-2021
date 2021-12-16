@@ -50,69 +50,90 @@ fn parse_n_bit_number(n: usize, input: &str) -> Result<(usize, &str), ParseError
 
 fn parse_packet(input: &str) -> Result<(Packet, &str), ParseError> {
     let (version, remaining) = parse_n_bit_number(3, input)?;
-    let (type_id, remaining) = parse_n_bit_number(3, remaining)?;
-    if type_id == 4 {
-        let mut number = String::new();
-        let mut is_last = false;
-        let mut r = remaining;
-        while !is_last {
-            let (first_bit, remaining) = parse_n_bit_number(1, r)?;
-            is_last = first_bit == 0;
-            let (group, remaining) = parse_n_bits(4, remaining)?;
-            number.push_str(group);
-            r = remaining;
-        }
-        Ok((
-            Packet::Literal {
-                version,
-                value: usize::from_str_radix(&number, 2).unwrap(),
-            },
-            r,
-        ))
+    let (operation_type, remaining) = parse_operation_type(remaining)?;
+    if let OperationType::SingleNumber = operation_type {
+        let (value, remaining) = parse_value(remaining)?;
+        Ok((Packet::Literal { version, value }, remaining))
     } else {
         let (length_type_id, remaining) = parse_n_bit_number(1, remaining)?;
         match length_type_id {
             0 => {
-                let (length_of_sub_packets, remaining) = parse_n_bit_number(15, remaining)?;
-                let mut length_of_parsed_sub_packets = 0;
-                let mut sub_packets: Vec<Packet> = Vec::new();
-                let mut r = remaining;
-                while length_of_parsed_sub_packets < length_of_sub_packets && !r.is_empty() {
-                    let (sub_packet, remaining) = parse_packet(r)?;
-                    sub_packets.push(sub_packet);
-                    length_of_parsed_sub_packets += r.len() - remaining.len();
-                    r = remaining;
-                }
+                let (length, remaining) = parse_n_bit_number(15, remaining)?;
+                let (sub_packets, remaining) = parse_length_of_sub_packets(length, remaining)?;
                 Ok((
                     Packet::Operation {
                         version,
-                        operation_type: type_id.try_into()?,
+                        operation_type,
                         packets: sub_packets,
                     },
-                    r,
+                    remaining,
                 ))
             }
             1 => {
-                let (number_of_sub_packets, remaining) = parse_n_bit_number(11, remaining)?;
-                let mut sub_packets = Vec::with_capacity(number_of_sub_packets);
-                let mut r = remaining;
-                for _ in 0..number_of_sub_packets {
-                    let (sub_packet, remaining) = parse_packet(r)?;
-                    sub_packets.push(sub_packet);
-                    r = remaining;
-                }
+                let (n, remaining) = parse_n_bit_number(11, remaining)?;
+                let (packets, remaining) = parse_n_packets(n, remaining)?;
                 Ok((
                     Packet::Operation {
                         version,
-                        operation_type: type_id.try_into()?,
-                        packets: sub_packets,
+                        operation_type,
+                        packets,
                     },
-                    r,
+                    remaining,
                 ))
             }
             _ => Err(ParseError),
         }
     }
+}
+
+fn parse_operation_type(input: &str) -> Result<(OperationType, &str), ParseError> {
+    let (type_id, remaining) = parse_n_bit_number(3, input)?;
+    let operation_type = OperationType::try_from(type_id)?;
+    Ok((operation_type, remaining))
+}
+
+fn parse_value(input: &str) -> Result<(usize, &str), ParseError> {
+    let mut number = String::new();
+    let mut is_last = false;
+    let mut remaining = input;
+    while !is_last {
+        let (first_bit, r) = parse_n_bit_number(1, remaining)?;
+        is_last = first_bit == 0;
+        let (group, r) = parse_n_bits(4, r)?;
+        number.push_str(group);
+        remaining = r;
+    }
+    Ok((
+        usize::from_str_radix(&number, 2).map_err(|_| ParseError)?,
+        remaining,
+    ))
+}
+
+fn parse_length_of_sub_packets(
+    length: usize,
+    input: &str,
+) -> Result<(Vec<Packet>, &str), ParseError> {
+    let mut length_of_parsed_sub_packets = 0;
+    let mut sub_packets: Vec<Packet> = Vec::new();
+    let mut remaining = input;
+    while length_of_parsed_sub_packets < length && !remaining.is_empty() {
+        let (sub_packet, r) = parse_packet(remaining)?;
+        sub_packets.push(sub_packet);
+        length_of_parsed_sub_packets += remaining.len() - r.len();
+        remaining = r;
+    }
+    Ok((sub_packets, remaining))
+}
+
+fn parse_n_packets(n: usize, input: &str) -> Result<(Vec<Packet>, &str), ParseError> {
+    let mut sub_packets = Vec::with_capacity(n);
+    let mut r = input;
+    for _ in 0..n {
+        let (sub_packet, remaining) = parse_packet(r)?;
+        sub_packets.push(sub_packet);
+        r = remaining;
+    }
+    Ok((sub_packets, r))
 }
 
 enum Packet {
@@ -251,13 +272,11 @@ mod tests {
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_1(b: &mut Bencher) {
         b.iter(|| part_1(INPUT).unwrap());
     }
 
     #[bench]
-    #[ignore]
     fn bench_part_2(b: &mut Bencher) {
         b.iter(|| part_2(INPUT).unwrap());
     }
