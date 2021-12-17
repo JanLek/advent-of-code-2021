@@ -8,26 +8,23 @@ use std::{
     str::FromStr,
 };
 
-fn part_1(input: &str) -> Result<i16, ParseError> {
+fn part_1(input: &str) -> Result<i32, ParseError> {
     let target_area = TargetArea::from_str(input)?;
     let max_height = find_max_height(&target_area);
     Ok(max_height)
-    // if let Some(max_height) = check_trajectory(6, 9, &target_area) {
-    //     Ok(max_height)
-    // } else {
-    //     panic!()
-    // }
 }
 
-fn part_2(_input: &str) -> Result<usize, ParseError> {
-    todo!();
+fn part_2(input: &str) -> Result<i32, ParseError> {
+    let target_area = TargetArea::from_str(input)?;
+    let num_trajectories = find_num_trajectories(&target_area);
+    Ok(num_trajectories)
 }
 
 struct TargetArea {
-    x_min: i16,
-    x_max: i16,
-    y_min: i16,
-    y_max: i16,
+    x_min: i32,
+    x_max: i32,
+    y_min: i32,
+    y_max: i32,
 }
 
 impl FromStr for TargetArea {
@@ -45,8 +42,8 @@ impl FromStr for TargetArea {
             .and_then(|s| s.split_once(".."))
             .ok_or(ParseError)?;
 
-        let y_a: i16 = y_a.parse()?;
-        let y_b: i16 = y_b.parse()?;
+        let y_a: i32 = y_a.parse()?;
+        let y_b: i32 = y_b.parse()?;
 
         Ok(Self {
             x_min: x_min.parse()?,
@@ -58,15 +55,10 @@ impl FromStr for TargetArea {
 }
 
 trait CheckTargetArea {
-    fn has_passed(&self, target_area: &TargetArea) -> bool;
     fn is_in(&self, target_area: &TargetArea) -> bool;
 }
 
-impl CheckTargetArea for (i16, i16) {
-    fn has_passed(&self, TargetArea { x_max, y_min, .. }: &TargetArea) -> bool {
-        let (x, y) = self;
-        x > x_max && y < y_min
-    }
+impl CheckTargetArea for (i32, i32) {
     fn is_in(
         &self,
         TargetArea {
@@ -81,7 +73,7 @@ impl CheckTargetArea for (i16, i16) {
     }
 }
 
-fn find_max_height(target_area: &TargetArea) -> i16 {
+fn find_max_height(target_area: &TargetArea) -> i32 {
     let mut max_height = 0;
 
     for delta_x in 0..100 {
@@ -97,15 +89,28 @@ fn find_max_height(target_area: &TargetArea) -> i16 {
     max_height
 }
 
-fn check_trajectory(delta_x: i16, delta_y: i16, target_area: &TargetArea) -> Option<i16> {
+fn find_num_trajectories(target_area: &TargetArea) -> i32 {
+    let mut num_trajectories = 0;
+
+    for delta_x in 0..600 {
+        for delta_y in -600..600 {
+            if check_trajectory(delta_x, delta_y, target_area).is_some() {
+                num_trajectories += 1;
+            }
+        }
+    }
+
+    num_trajectories
+}
+
+fn check_trajectory(delta_x: i32, delta_y: i32, target_area: &TargetArea) -> Option<i32> {
     let mut x = 0;
     let mut y = 0;
     let mut max_y = 0;
     let mut delta_x = delta_x;
     let mut delta_y = delta_y;
 
-    while !((x, y).has_passed(target_area)) && can_reach_target(x, y, delta_x, delta_y, target_area)
-    {
+    while can_reach_target(x, y, delta_x, delta_y, target_area) {
         if (x, y).is_in(target_area) {
             return Some(max_y);
         }
@@ -125,7 +130,7 @@ fn check_trajectory(delta_x: i16, delta_y: i16, target_area: &TargetArea) -> Opt
     None
 }
 
-fn can_reach_target(x: i16, y: i16, delta_x: i16, delta_y: i16, target_area: &TargetArea) -> bool {
+fn can_reach_target(x: i32, y: i32, delta_x: i32, delta_y: i32, target_area: &TargetArea) -> bool {
     if delta_x <= 0 && x < target_area.x_min {
         false
     } else if delta_y < 0 && y < target_area.y_min {
@@ -160,9 +165,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_part_2() {
-        assert_eq!(part_2(INPUT).unwrap(), 0);
+        assert_eq!(part_2("target area: x=20..30, y=-10..-5").unwrap(), 112);
+        assert_eq!(part_2(INPUT).unwrap(), 940);
     }
 
     #[bench]
