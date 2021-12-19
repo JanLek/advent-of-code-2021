@@ -92,7 +92,7 @@ fn find_max_height(target_area: &TargetArea) -> i32 {
 fn find_num_trajectories(target_area: &TargetArea) -> i32 {
     let mut num_trajectories = 0;
 
-    for delta_x in 0..600 {
+    for delta_x in delta_x_range(target_area) {
         for delta_y in -600..600 {
             if check_trajectory(delta_x, delta_y, target_area).is_some() {
                 num_trajectories += 1;
@@ -101,6 +101,18 @@ fn find_num_trajectories(target_area: &TargetArea) -> i32 {
     }
 
     num_trajectories
+}
+
+fn delta_x_range(target_area: &TargetArea) -> std::ops::RangeInclusive<i32> {
+    // let mut from = 1;
+    // let mut delta_from = 1;
+    // while from < target_area.x_min {
+    //     from += delta_from;
+    //     delta_from += 1;
+    // }
+    let from = 1;
+    let to = target_area.x_max;
+    from..=to
 }
 
 fn check_trajectory(delta_x: i32, delta_y: i32, target_area: &TargetArea) -> Option<i32> {
@@ -131,9 +143,11 @@ fn check_trajectory(delta_x: i32, delta_y: i32, target_area: &TargetArea) -> Opt
 }
 
 fn can_reach_target(x: i32, y: i32, delta_x: i32, delta_y: i32, target_area: &TargetArea) -> bool {
+    // y > target_area.y_min && (delta_x > 0 || x > target_area.x_min)
+
     if delta_x <= 0 && x < target_area.x_min {
         false
-    } else if delta_y < 0 && y < target_area.y_min {
+    } else if y < target_area.y_min {
         false
     } else {
         true
