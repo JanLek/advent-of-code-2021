@@ -13,12 +13,23 @@ use std::{
 fn part_1(input: &str) -> Result<u32, ParseError> {
     let numbers: Vec<SnailfishNumber> = input.lines().map(str::parse).collect::<Result<_, _>>()?;
     let sum: SnailfishNumber = numbers.into_iter().sum();
-    dbg!(&sum);
     Ok(sum.magnitude())
 }
 
-fn part_2(_input: &str) -> Result<u32, ParseError> {
-    todo!()
+fn part_2(input: &str) -> Result<u32, ParseError> {
+    let numbers: Vec<SnailfishNumber> = input.lines().map(str::parse).collect::<Result<_, _>>()?;
+    let max_magnitude = numbers
+        .iter()
+        .flat_map(|number| {
+            numbers
+                .iter()
+                .filter(move |other_number| *other_number != number)
+                .map(|other_number| (number.clone() + other_number.clone()).magnitude())
+        })
+        .max()
+        .unwrap();
+
+    Ok(max_magnitude)
 }
 
 #[derive(Clone, PartialEq)]
@@ -344,10 +355,9 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn test_part_2() {
-        assert_eq!(part_2(SAMPLE_INPUT).unwrap(), 0);
-        assert_eq!(part_2(INPUT).unwrap(), 0);
+        assert_eq!(part_2(SAMPLE_INPUT).unwrap(), 3_993);
+        assert_eq!(part_2(INPUT).unwrap(), 4_555);
     }
 
     #[bench]
